@@ -1,0 +1,23 @@
+{
+  "name": "cashoo-vercel",
+  "version": "1.0.0",
+  "description": "CASHOO Banking Dashboard - Vercel Deployment",
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "echo 'No build needed'",
+    "deploy": "vercel --prod",
+    "test-db": "node scripts/test-supabase.js",
+    "test-flinks": "node scripts/test-flinks.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "axios": "^1.6.0",
+    "jsonwebtoken": "^9.0.2"
+  },
+  "devDependencies": {
+    "vercel": "^32.0.0"
+  },
+  "keywords": ["cashoo", "banking", "flinks", "dashboard", "vercel"],
+  "author": "Solution Argent Rapide",
+  "license": "MIT"
+}
