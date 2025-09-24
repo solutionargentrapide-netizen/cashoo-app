@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CASHOO - Banking Dashboard</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Login Form -->
+        <div id="loginForm" class="card login-form">
+            <h2>Welcome to CASHOO</h2>
+            <p style="margin: 20px 0; color: #666;">
+                Enter your email to access your banking dashboard
+            </p>
+            <form onsubmit="login(event)">
+                <input 
+                    type="email" 
+                    id="email" 
+                    placeholder="Enter your email"
+                    required
+                />
+                <button type="submit" id="loginBtn">
+                    Access Dashboard
+                </button>
+            </form>
+            <div id="loginMessage"></div>
+        </div>
+
+        <!-- Dashboard -->
+        <div id="dashboard" class="dashboard">
+            <div class="header">
+                <h1>CASHOO Dashboard</h1>
+                <div class="user-info">
+                    <span class="sync-status" id="lastSync">Never synced</span>
+                    <span id="userEmail"></span>
+                    <button onclick="logout()">Logout</button>
+                </div>
+            </div>
+
+            <!-- Balance Card -->
+            <div class="card balance-card">
+                <h2>Total Balance</h2>
+                <div class="balance" id="totalBalance">$0.00</div>
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button onclick="connectBank()" id="connectBtn">
+                        Connect Bank Account
+                    </button>
+                    <button onclick="syncAccounts()" id="syncBtn" style="display:none;">
+                        Refresh Data
+                    </button>
+                </div>
+            </div>
+
+            <!-- Accounts -->
+            <div class="card">
+                <h2>Your Accounts</h2>
+                <div id="accountsList" class="accounts-grid">
+                    <div class="loading">No accounts connected yet</div>
+                </div>
+            </div>
+
+            <!-- Transactions -->
+            <div class="card">
+                <h2>Recent Transactions</h2>
+                <div id="transactionsList" class="transactions-list">
+                    <div class="loading">No transactions available</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Flinks iFrame Container -->
+        <div id="iframeContainer" class="iframe-container">
+            <div class="iframe-wrapper">
+                <button class="close-iframe" onclick="closeFlinks()">×</button>
+                <iframe id="flinksFrame"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/app.js"></script>
+</body>
+</html>
