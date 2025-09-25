@@ -365,7 +365,7 @@
             <div class="terms">
                 <label>
                     <input type="checkbox" id="terms" name="terms" required>
-                    J'accepte les <a href="/terms" target="_blank">conditions d'utilisation</a> et la <a href="/privacy" target="_blank">politique de confidentialité</a>
+                    J'accepte les <a href="#" onclick="return false;">conditions d'utilisation</a> et la <a href="#" onclick="return false;">politique de confidentialité</a>
                 </label>
             </div>
 
@@ -378,7 +378,7 @@
         </form>
 
         <div class="links">
-            <p>Déjà un compte ? <a href="/login">Se connecter</a></p>
+            <p>Déjà un compte ? <a href="/login.html">Se connecter</a></p>
         </div>
     </div>
 
@@ -511,9 +511,9 @@
                 return;
             }
 
-            // Check password requirements
-            if (!checkPasswordRequirements(password)) {
-                showAlert('Le mot de passe ne respecte pas tous les critères', 'error');
+            // Check password requirements (simplified for now)
+            if (password.length < 8) {
+                showAlert('Le mot de passe doit contenir au moins 8 caractères', 'error');
                 return;
             }
 
@@ -544,33 +544,23 @@
                     },
                     body: JSON.stringify({
                         email,
-                        password,
-                        confirmPassword
+                        password
                     })
                 });
 
                 const data = await response.json();
 
                 if (response.ok && data.success) {
-                    // Store token temporarily
-                    sessionStorage.setItem('cashoo_token', data.token);
-                    sessionStorage.setItem('cashoo_user', JSON.stringify(data.user));
+                    // Store token
+                    localStorage.setItem('cashoo_token', data.token);
+                    localStorage.setItem('cashoo_user', JSON.stringify(data.user));
                     
-                    showAlert('Compte créé avec succès ! Un email de vérification vous a été envoyé.', 'success');
+                    showAlert('Compte créé avec succès ! Redirection vers la connexion...', 'success');
                     
-                    // In development, show the verification link
-                    if (data.verificationLink) {
-                        showAlert(
-                            `<strong>Mode développement:</strong><br>
-                            <a href="${data.verificationLink}" target="_blank">Cliquez ici pour vérifier votre email</a>`,
-                            'info'
-                        );
-                    }
-
-                    // Redirect to verification notice page
+                    // Redirect to login page after 2 seconds
                     setTimeout(() => {
-                        window.location.href = '/verify-email-notice';
-                    }, 3000);
+                        window.location.href = '/login.html';
+                    }, 2000);
                 } else {
                     showAlert(data.error || 'Erreur lors de la création du compte', 'error');
                 }
