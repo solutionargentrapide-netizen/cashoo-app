@@ -1,9 +1,7 @@
 // api/auth/verify.js
-// Fonction serverless pour vérifier le token JWT
 const jwt = require('jsonwebtoken');
 
 module.exports = async (req, res) => {
-  // Configuration CORS
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -26,7 +24,6 @@ module.exports = async (req, res) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    // Token is valid
     res.json({
       valid: true,
       userId: decoded.userId,
@@ -34,7 +31,6 @@ module.exports = async (req, res) => {
     });
 
   } catch (error) {
-    // Token is invalid or expired
     res.status(401).json({ 
       valid: false, 
       error: error.name === 'TokenExpiredError' ? 'Token expired' : 'Invalid token' 
