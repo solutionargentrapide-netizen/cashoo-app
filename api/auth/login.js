@@ -1,10 +1,9 @@
 // api/auth/login.js
-// Fonction serverless pour l'authentification
 const { createClient } = require('@supabase/supabase-js');
 const jwt = require('jsonwebtoken');
 
 module.exports = async (req, res) => {
-  // Initialiser Supabase ICI, DANS la fonction
+  // Initialiser Supabase DANS la fonction
   const supabase = createClient(
     process.env.SUPABASE_URL,
     process.env.SUPABASE_SERVICE_KEY
@@ -31,7 +30,6 @@ module.exports = async (req, res) => {
       return res.status(400).json({ error: 'Invalid email' });
     }
 
-    // Get or create user
     let { data: user, error } = await supabase
       .from('users')
       .select('*')
@@ -39,7 +37,6 @@ module.exports = async (req, res) => {
       .single();
 
     if (error || !user) {
-      // Create new user
       const { data: newUser, error: createError } = await supabase
         .from('users')
         .insert({ email })
@@ -52,14 +49,12 @@ module.exports = async (req, res) => {
       user = newUser;
     }
 
-    // Create session token
     const token = jwt.sign(
       { userId: user.id, email: user.email },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
 
-    // Save session
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
 
