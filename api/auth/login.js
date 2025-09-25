@@ -1,33 +1,34 @@
-module.exports = async (req, res) => {
-  // DEBUG - À RETIRER APRÈS
-  console.log('ENV CHECK:', {
-    url_exists: !!process.env.SUPABASE_URL,
-    key_exists: !!process.env.SUPABASE_SERVICE_KEY,
-    jwt_exists: !!process.env.JWT_SECRET,
-    url_value: process.env.SUPABASE_URL?.substring(0, 20) + '...',
-    key_length: process.env.SUPABASE_SERVICE_KEY?.length
-  });
-
-  // Initialiser Supabase DANS la fonction
-  const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_KEY
-  );
-
-  // Reste du code...
-
-// api/auth/login.js
+// api/auth/login.js - VERSION DEBUG
 const { createClient } = require('@supabase/supabase-js');
 const jwt = require('jsonwebtoken');
 
 module.exports = async (req, res) => {
-  // Initialiser Supabase DANS la fonction
-  const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_KEY
-  );
+  // DEBUG - TEMPORAIRE
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_KEY;
+  
+  console.log('DEBUG ENV:', {
+    url_exists: !!url,
+    key_exists: !!key,
+    url_start: url ? url.substring(0, 30) : 'UNDEFINED',
+    key_start: key ? key.substring(0, 30) : 'UNDEFINED'
+  });
 
-  // Configuration CORS
+  // Si les variables n'existent pas, retourne une erreur claire
+  if (!url || !key) {
+    return res.status(500).json({ 
+      error: 'ENV VARS MISSING',
+      details: {
+        url: !!url,
+        key: !!key
+      }
+    });
+  }
+
+  // Initialiser Supabase
+  const supabase = createClient(url, key);
+
+  // Reste du code CORS...
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -69,7 +70,7 @@ module.exports = async (req, res) => {
 
     const token = jwt.sign(
       { userId: user.id, email: user.email },
-      process.env.JWT_SECRET,
+      process.env.JWT_SECRET || 'default-jwt-secret-for-testing',
       { expiresIn: '7d' }
     );
 
