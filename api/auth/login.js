@@ -1,34 +1,14 @@
-// api/auth/login.js - VERSION DEBUG
+// api/auth/login.js - HARDCODED TEMPORAIRE
 const { createClient } = require('@supabase/supabase-js');
 const jwt = require('jsonwebtoken');
 
 module.exports = async (req, res) => {
-  // DEBUG - TEMPORAIRE
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_KEY;
-  
-  console.log('DEBUG ENV:', {
-    url_exists: !!url,
-    key_exists: !!key,
-    url_start: url ? url.substring(0, 30) : 'UNDEFINED',
-    key_start: key ? key.substring(0, 30) : 'UNDEFINED'
-  });
+  // HARDCODED - TEMPORAIRE POUR FAIRE MARCHER
+  const supabase = createClient(
+    'https://tvfqfjfkmccyrpfkkfva.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2ZnFmamZrbWNjeXJwZmtrZnZhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1ODczOTg3MywiZXhwIjoyMDc0MzE1ODczfQ.z7W1bIukn4ea3JmQwSjRu1oSIGjQX_2qQduGlUoXDZk'
+  );
 
-  // Si les variables n'existent pas, retourne une erreur claire
-  if (!url || !key) {
-    return res.status(500).json({ 
-      error: 'ENV VARS MISSING',
-      details: {
-        url: !!url,
-        key: !!key
-      }
-    });
-  }
-
-  // Initialiser Supabase
-  const supabase = createClient(url, key);
-
-  // Reste du code CORS...
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -70,7 +50,7 @@ module.exports = async (req, res) => {
 
     const token = jwt.sign(
       { userId: user.id, email: user.email },
-      process.env.JWT_SECRET || 'default-jwt-secret-for-testing',
+      'cashoo-jwt-secret-change-this-in-production',
       { expiresIn: '7d' }
     );
 
