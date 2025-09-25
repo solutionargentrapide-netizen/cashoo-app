@@ -1,7 +1,28 @@
-json{
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "public/**",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/public/$1"
+    }
+  ],
   "functions": {
     "api/**/*.js": {
-      "runtime": "@vercel/node"
+      "maxDuration": 30,
+      "memory": 512
     }
+  },
+  "env": {
+    "NODE_ENV": "production"
   }
 }
