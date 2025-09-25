@@ -1,4 +1,3 @@
-// api/auth/verify.js
 const jwt = require('jsonwebtoken');
 
 module.exports = async (req, res) => {
@@ -22,7 +21,7 @@ module.exports = async (req, res) => {
       return res.status(401).json({ valid: false, error: 'No token provided' });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, 'cashoo-jwt-secret-change-this-in-production');
     
     res.json({
       valid: true,
