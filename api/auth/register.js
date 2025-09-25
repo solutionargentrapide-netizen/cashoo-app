@@ -1,12 +1,10 @@
-// api/auth/register.js
-// Inscription sécurisée avec mot de passe et vérification email
+// api/auth/register.js - Version sans bcryptjs
 const { createClient } = require('@supabase/supabase-js');
-const bcrypt = require('bcryptjs');
-const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 
 module.exports = async (req, res) => {
-  // Initialisation Supabase avec les bonnes clés
+  // Initialisation Supabase avec les vraies clés
   const supabase = createClient(
     'https://tvfqfjfkmccyrpfkkfva.supabase.co',
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2ZnFmamZrbWNjeXJwZmtrZnZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg3Mzk4NzMsImV4cCI6MjA3NDMxNTg3M30.EYjHqSSD1wnghW8yI3LJj88VUtMIxaZ_hv1-FQ8i1DA'
@@ -14,9 +12,9 @@ module.exports = async (req, res) => {
 
   // Configuration CORS
   res.setHeader('Access-Control-Allow-Credentials', true);
-  res.setHeader('Access-Control-Allow-Origin', 'https://www.cashoo.ai');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With, X-HTTP-Method-Override, Content-Type, Accept, Authorization');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -27,61 +25,41 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const { email, password, confirmPassword } = req.body;
+    const { email, password } = req.body;
 
-    // Validation des entrées
-    if (!email || !password || !confirmPassword) {
-      return res.status(400).json({ 
-        error: 'Email et mot de passe requis' 
-      });
+    // Validation
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
     }
 
-    // Validation de l'email
+    // Validation email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      return res.status(400).json({ 
-        error: 'Format d\'email invalide' 
-      });
+      return res.status(400).json({ error: 'Invalid email format' });
     }
 
-    // Validation du mot de passe
+    // Validation mot de passe (minimum 8 caractères)
     if (password.length < 8) {
       return res.status(400).json({ 
-        error: 'Le mot de passe doit contenir au moins 8 caractères' 
-      });
-    }
-
-    // Vérifier la complexité du mot de passe
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/;
-    if (!passwordRegex.test(password)) {
-      return res.status(400).json({ 
-        error: 'Le mot de passe doit contenir au moins une majuscule, une minuscule, un chiffre et un caractère spécial' 
-      });
-    }
-
-    // Vérifier que les mots de passe correspondent
-    if (password !== confirmPassword) {
-      return res.status(400).json({ 
-        error: 'Les mots de passe ne correspondent pas' 
+        error: 'Password must be at least 8 characters long' 
       });
     }
 
     // Vérifier si l'utilisateur existe déjà
     const { data: existingUser } = await supabase
       .from('users')
-      .select('email')
-      .eq('email', email.toLowerCase())
+      .select('id')
+      .eq('email', email)
       .single();
 
     if (existingUser) {
-      return res.status(409).json({ 
-        error: 'Cet email est déjà enregistré' 
-      });
+      return res.status(409).json({ error: 'User already exists' });
     }
 
-    // Hasher le mot de passe
-    const saltRounds = 10;
-    const passwordHash = await bcrypt.hash(password, saltRounds);
+    // Hash du mot de passe avec crypto (alternative à bcrypt)
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hashedPassword = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
+    const passwordHash = `${salt}:${hashedPassword}`;
 
     // Générer un token de vérification
     const verificationToken = crypto.randomBytes(32).toString('hex');
@@ -90,87 +68,66 @@ module.exports = async (req, res) => {
     const { data: newUser, error: createError } = await supabase
       .from('users')
       .insert({
-        email: email.toLowerCase(),
+        email,
         password_hash: passwordHash,
         email_verified: false,
         verification_token: verificationToken,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        created_at: new Date().toISOString()
       })
       .select()
       .single();
 
     if (createError) {
-      console.error('Erreur création utilisateur:', createError);
-      return res.status(500).json({ 
-        error: 'Erreur lors de la création du compte' 
-      });
+      console.error('Create user error:', createError);
+      return res.status(500).json({ error: 'Failed to create user' });
     }
 
-    // Logger l'inscription
-    await supabase
-      .from('auth_logs')
-      .insert({
-        user_id: newUser.id,
-        action: 'registration',
-        ip_address: req.headers['x-forwarded-for'] || req.connection.remoteAddress,
-        user_agent: req.headers['user-agent'],
-        metadata: { email: email.toLowerCase() },
-        created_at: new Date().toISOString()
-      });
-
-    // TODO: Envoyer l'email de vérification
-    // Dans un environnement de production, utilisez un service comme SendGrid ou AWS SES
-    // Pour le test, on affiche juste le lien
-    const verificationLink = `https://www.cashoo.ai/verify-email?token=${verificationToken}&email=${email}`;
-    console.log('Lien de vérification:', verificationLink);
-
-    // Créer un token JWT temporaire (valide 1 heure seulement tant que l'email n'est pas vérifié)
+    // Créer un token JWT temporaire
     const token = jwt.sign(
       { 
         userId: newUser.id, 
         email: newUser.email,
-        emailVerified: false
+        verified: false 
       },
-      process.env.JWT_SECRET || 'cashoo-jwt-secret-change-this-in-production',
-      { 
-        expiresIn: '1h' 
-      }
+      'cashoo-jwt-secret-change-this-in-production',
+      { expiresIn: '1h' }
     );
 
-    // Créer une session temporaire
-    const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 1);
-
+    // Log de l'inscription
     await supabase
-      .from('sessions')
+      .from('auth_logs')
       .insert({
         user_id: newUser.id,
-        token,
-        expires_at: expiresAt.toISOString(),
-        created_at: new Date().toISOString()
+        action: 'register',
+        ip_address: req.headers['x-forwarded-for'] || req.connection?.remoteAddress,
+        user_agent: req.headers['user-agent'],
+        metadata: { email }
       });
 
-    // Retourner le succès
-    res.status(201).json({
+    res.json({
       success: true,
-      message: 'Compte créé avec succès. Veuillez vérifier votre email.',
+      message: 'Registration successful! Please verify your email.',
+      token,
       user: {
         id: newUser.id,
         email: newUser.email,
         emailVerified: false
       },
-      token,
-      verificationRequired: true,
-      // En dev seulement, retourner le lien de vérification
-      ...(process.env.NODE_ENV !== 'production' && { verificationLink })
+      verificationRequired: true
     });
 
   } catch (error) {
-    console.error('Erreur inscription:', error);
+    console.error('Registration error:', error);
     res.status(500).json({ 
-      error: 'Erreur serveur lors de l\'inscription',
-      details: process.env.NODE_ENV !== 'production' ? error.message : undefined
+      error: 'Registration failed', 
+      details: error.message 
     });
   }
 };
+
+// Fonction helper pour vérifier le mot de passe
+function verifyPassword(password, hash) {
+  const [salt, key] = hash.split(':');
+  const verifyHash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
+  return key === verifyHash;
+}
