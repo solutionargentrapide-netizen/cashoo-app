@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CASHOO - Créer un compte</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .auth-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 500px;
+            padding: 40px;
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .logo h1 {
+            color: #667eea;
+            font-size: 2.5rem;
+            font-weight: 700;
+        }
+
+        .logo p {
+            color: #666;
+            margin-top: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        input.error {
+            border-color: #ef4444;
+        }
+
+        input.success {
+            border-color: #22c55e;
+        }
+
+        .password-wrapper {
+            position: relative;
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: #999;
+        }
+
+        .password-strength {
+            margin-top: 10px;
+        }
+
+        .strength-bar {
+            height: 4px;
+            background: #e5e5e5;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .strength-bar-fill {
+            height: 100%;
+            transition: all 0.3s;
+            border-radius: 2px;
+        }
+
+        .strength-weak { background: #ef4444; width: 33%; }
+        .strength-medium { background: #f59e0b; width: 66%; }
+        .strength-strong { background: #22c55e; width: 100%; }
+
+        .password-requirements {
+            font-size: 12px;
+            color: #666;
+            margin-top: 10px;
+        }
+
+        .requirement {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+            transition: color 0.3s;
+        }
+
+        .requirement-icon {
+            width: 16px;
+            height: 16px;
+            margin-right: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .requirement.met {
+            color: #22c55e;
+        }
+
+        .requirement.met .requirement-icon::before {
+            content: "✓";
+            color: #22c55e;
+        }
+
+        .requirement:not(.met) .requirement-icon::before {
+            content: "○";
+            color: #999;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover:not(:disabled) {
+            background: #5a67d8;
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .alert {
+            padding: 12px 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .alert-error {
+            background: #fee;
+            color: #c00;
+            border: 1px solid #fcc;
+        }
+
+        .alert-success {
+            background: #efe;
+            color: #060;
+            border: 1px solid #cfc;
+        }
+
+        .alert-warning {
+            background: #ffeaa7;
+            color: #856404;
+            border: 1px solid #ffd93d;
+        }
+
+        .alert-info {
+            background: #e7f5ff;
+            color: #0c5460;
+            border: 1px solid #b8daff;
+        }
+
+        .links {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .links a {
+            color: #667eea;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .links a:hover {
+            text-decoration: underline;
+        }
+
+        .terms {
+            margin: 20px 0;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .terms input[type="checkbox"] {
+            width: auto;
+            margin-right: 8px;
+        }
+
+        .terms label {
+            display: inline;
+            margin: 0;
+            font-weight: normal;
+        }
+
+        .terms a {
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .field-feedback {
+            font-size: 12px;
+            margin-top: 5px;
+        }
+
+        .field-feedback.error {
+            color: #ef4444;
+        }
+
+        .field-feedback.success {
+            color: #22c55e;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="logo">
+            <h1>CASHOO</h1>
+            <p>Créez votre compte sécurisé</p>
+        </div>
+
+        <div id="alertContainer"></div>
+
+        <form id="registerForm">
+            <div class="form-group">
+                <label for="email">Adresse email *</label>
+                <input 
+                    type="email" 
+                    id="email" 
+                    name="email" 
+                    required 
+                    placeholder="vous@exemple.com"
+                    autocomplete="email"
+                />
+                <div id="emailFeedback" class="field-feedback"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Mot de passe *</label>
+                <div class="password-wrapper">
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password" 
+                        required 
+                        placeholder="Créez un mot de passe fort"
+                        autocomplete="new-password"
+                    />
+                    <span class="toggle-password" onclick="togglePassword('password')">👁</span>
+                </div>
+                
+                <div class="password-strength">
+                    <div class="strength-bar">
+                        <div id="strengthBarFill" class="strength-bar-fill"></div>
+                    </div>
+                </div>
+
+                <div class="password-requirements">
+                    <div id="req-length" class="requirement">
+                        <span class="requirement-icon"></span>
+                        <span>Au moins 8 caractères</span>
+                    </div>
+                    <div id="req-uppercase" class="requirement">
+                        <span class="requirement-icon"></span>
+                        <span>Une lettre majuscule</span>
+                    </div>
+                    <div id="req-lowercase" class="requirement">
+                        <span class="requirement-icon"></span>
+                        <span>Une lettre minuscule</span>
+                    </div>
+                    <div id="req-number" class="requirement">
+                        <span class="requirement-icon"></span>
+                        <span>Un chiffre</span>
+                    </div>
+                    <div id="req-special" class="requirement">
+                        <span class="requirement-icon"></span>
+                        <span>Un caractère spécial (@$!%*?&)</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="confirmPassword">Confirmez le mot de passe *</label>
+                <div class="password-wrapper">
+                    <input 
+                        type="password" 
+                        id="confirmPassword" 
+                        name="confirmPassword" 
+                        required 
+                        placeholder="Répétez votre mot de passe"
+                        autocomplete="new-password"
+                    />
+                    <span class="toggle-password" onclick="togglePassword('confirmPassword')">👁</span>
+                </div>
+                <div id="confirmPasswordFeedback" class="field-feedback"></div>
+            </div>
+
+            <div class="terms">
+                <label>
+                    <input type="checkbox" id="terms" name="terms" required>
+                    J'accepte les <a href="/terms" target="_blank">conditions d'utilisation</a> et la <a href="/privacy" target="_blank">politique de confidentialité</a>
+                </label>
+            </div>
+
+            <button type="submit" id="submitBtn">Créer mon compte</button>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p style="margin-top: 10px;">Création du compte en cours...</p>
+            </div>
+        </form>
+
+        <div class="links">
+            <p>Déjà un compte ? <a href="/login">Se connecter</a></p>
+        </div>
+    </div>
+
+    <script>
+        // Toggle password visibility
+        function togglePassword(fieldId) {
+            const field = document.getElementById(fieldId);
+            const type = field.type === 'password' ? 'text' : 'password';
+            field.type = type;
+        }
+
+        // Show alert
+        function showAlert(message, type = 'error') {
+            const alertContainer = document.getElementById('alertContainer');
+            alertContainer.innerHTML = `
+                <div class="alert alert-${type}">
+                    ${message}
+                </div>
+            `;
+            
+            if (type === 'success') {
+                setTimeout(() => {
+                    alertContainer.innerHTML = '';
+                }, 5000);
+            }
+        }
+
+        // Check password requirements
+        function checkPasswordRequirements(password) {
+            const requirements = {
+                length: password.length >= 8,
+                uppercase: /[A-Z]/.test(password),
+                lowercase: /[a-z]/.test(password),
+                number: /\d/.test(password),
+                special: /[@$!%*?&]/.test(password)
+            };
+
+            // Update UI
+            document.getElementById('req-length').classList.toggle('met', requirements.length);
+            document.getElementById('req-uppercase').classList.toggle('met', requirements.uppercase);
+            document.getElementById('req-lowercase').classList.toggle('met', requirements.lowercase);
+            document.getElementById('req-number').classList.toggle('met', requirements.number);
+            document.getElementById('req-special').classList.toggle('met', requirements.special);
+
+            // Calculate strength
+            const metCount = Object.values(requirements).filter(v => v).length;
+            const strengthBar = document.getElementById('strengthBarFill');
+            
+            if (metCount <= 2) {
+                strengthBar.className = 'strength-bar-fill strength-weak';
+            } else if (metCount <= 4) {
+                strengthBar.className = 'strength-bar-fill strength-medium';
+            } else {
+                strengthBar.className = 'strength-bar-fill strength-strong';
+            }
+
+            return Object.values(requirements).every(v => v);
+        }
+
+        // Check if passwords match
+        function checkPasswordsMatch() {
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const feedback = document.getElementById('confirmPasswordFeedback');
+
+            if (confirmPassword.length === 0) {
+                feedback.textContent = '';
+                feedback.className = 'field-feedback';
+                return false;
+            }
+
+            if (password === confirmPassword) {
+                feedback.textContent = 'Les mots de passe correspondent';
+                feedback.className = 'field-feedback success';
+                document.getElementById('confirmPassword').classList.remove('error');
+                document.getElementById('confirmPassword').classList.add('success');
+                return true;
+            } else {
+                feedback.textContent = 'Les mots de passe ne correspondent pas';
+                feedback.className = 'field-feedback error';
+                document.getElementById('confirmPassword').classList.add('error');
+                document.getElementById('confirmPassword').classList.remove('success');
+                return false;
+            }
+        }
+
+        // Validate email format
+        function validateEmail(email) {
+            const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return re.test(email);
+        }
+
+        // Event listeners
+        document.getElementById('password').addEventListener('input', (e) => {
+            checkPasswordRequirements(e.target.value);
+            if (document.getElementById('confirmPassword').value) {
+                checkPasswordsMatch();
+            }
+        });
+
+        document.getElementById('confirmPassword').addEventListener('input', checkPasswordsMatch);
+
+        document.getElementById('email').addEventListener('blur', (e) => {
+            const feedback = document.getElementById('emailFeedback');
+            if (e.target.value && !validateEmail(e.target.value)) {
+                feedback.textContent = 'Format d\'email invalide';
+                feedback.className = 'field-feedback error';
+                e.target.classList.add('error');
+            } else {
+                feedback.textContent = '';
+                e.target.classList.remove('error');
+            }
+        });
+
+        // Handle form submission
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const termsAccepted = document.getElementById('terms').checked;
+
+            // Clear previous alerts
+            document.getElementById('alertContainer').innerHTML = '';
+
+            // Validate email
+            if (!validateEmail(email)) {
+                showAlert('Format d\'email invalide', 'error');
+                return;
+            }
+
+            // Check password requirements
+            if (!checkPasswordRequirements(password)) {
+                showAlert('Le mot de passe ne respecte pas tous les critères', 'error');
+                return;
+            }
+
+            // Check passwords match
+            if (password !== confirmPassword) {
+                showAlert('Les mots de passe ne correspondent pas', 'error');
+                return;
+            }
+
+            // Check terms
+            if (!termsAccepted) {
+                showAlert('Vous devez accepter les conditions d\'utilisation', 'error');
+                return;
+            }
+
+            const submitBtn = document.getElementById('submitBtn');
+            const loading = document.getElementById('loading');
+
+            // Disable form
+            submitBtn.disabled = true;
+            loading.classList.add('active');
+
+            try {
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email,
+                        password,
+                        confirmPassword
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    // Store token temporarily
+                    sessionStorage.setItem('cashoo_token', data.token);
+                    sessionStorage.setItem('cashoo_user', JSON.stringify(data.user));
+                    
+                    showAlert('Compte créé avec succès ! Un email de vérification vous a été envoyé.', 'success');
+                    
+                    // In development, show the verification link
+                    if (data.verificationLink) {
+                        showAlert(
+                            `<strong>Mode développement:</strong><br>
+                            <a href="${data.verificationLink}" target="_blank">Cliquez ici pour vérifier votre email</a>`,
+                            'info'
+                        );
+                    }
+
+                    // Redirect to verification notice page
+                    setTimeout(() => {
+                        window.location.href = '/verify-email-notice';
+                    }, 3000);
+                } else {
+                    showAlert(data.error || 'Erreur lors de la création du compte', 'error');
+                }
+            } catch (error) {
+                console.error('Registration error:', error);
+                showAlert('Erreur serveur. Veuillez réessayer.', 'error');
+            } finally {
+                submitBtn.disabled = false;
+                loading.classList.remove('active');
+            }
+        });
+    </script>
+</body>
+</html>
