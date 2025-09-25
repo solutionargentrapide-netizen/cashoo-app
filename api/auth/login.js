@@ -1,12 +1,12 @@
-// api/auth/login.js - HARDCODED TEMPORAIRE
+// api/auth/login.js - VERSION CORRIGÉE AVEC ANON KEY
 const { createClient } = require('@supabase/supabase-js');
 const jwt = require('jsonwebtoken');
 
 module.exports = async (req, res) => {
-  // HARDCODED - TEMPORAIRE POUR FAIRE MARCHER
+  // Utilise la clé ANON qui fonctionne
   const supabase = createClient(
     'https://tvfqfjfkmccyrpfkkfva.supabase.co',
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2ZnFmamZrbWNjeXJwZmtrZnZhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1ODczOTg3MywiZXhwIjoyMDc0MzE1ODczfQ.z7W1bIukn4ea3JmQwSjRu1oSIGjQX_2qQduGlUoXDZk'
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2ZnFmamZrbWNjeXJwZmtrZnZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg3Mzk4NzMsImV4cCI6MjA3NDMxNTg3M30.QfHPKnzpZ0d6XkPYdVxPd3rbt2Np-x0IbYbzcVLnJqk'
   );
 
   res.setHeader('Access-Control-Allow-Credentials', true);
