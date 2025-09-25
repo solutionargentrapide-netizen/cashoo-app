@@ -1,15 +1,14 @@
 // api/flinks/accounts.js
-// Fonction serverless pour récupérer les comptes en cache
 const { createClient } = require('@supabase/supabase-js');
 const jwt = require('jsonwebtoken');
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
-);
-
 module.exports = async (req, res) => {
-  // Configuration CORS
+  // Initialiser Supabase DANS la fonction
+  const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_KEY
+  );
+
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -24,7 +23,6 @@ module.exports = async (req, res) => {
   }
 
   try {
-    // Vérifier le token
     const token = req.headers.authorization?.replace('Bearer ', '');
     if (!token) {
       return res.status(401).json({ error: 'No token provided' });
@@ -33,7 +31,6 @@ module.exports = async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userId = decoded.userId;
 
-    // Récupérer les données depuis Supabase
     const { data, error } = await supabase
       .from('flinks_data')
       .select('*')
