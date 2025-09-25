@@ -1,4 +1,4 @@
-// api/auth/login.js - Version avec vérification de mot de passe
+// api/auth/login.js - Version simplifiée sans colonnes problématiques
 const { createClient } = require('@supabase/supabase-js');
 const jwt = require('jsonwebtoken');
 
@@ -24,26 +24,48 @@ module.exports = async (req, res) => {
   try {
     const { email, password } = req.body;
     
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password required' });
+    // Validation basique
+    if (!email) {
+      return res.status(400).json({ error: 'Email required' });
     }
 
     // Récupérer l'utilisateur
     let { data: user, error } = await supabase
       .from('users')
-      .select('*')
+      .select('id, email, password_hash')
       .eq('email', email)
       .single();
 
     if (error || !user) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    // Vérifier le mot de passe (méthode base64 temporaire)
+    // Si pas de password dans la requête mais l'utilisateur n'a pas de password_hash (ancien système)
+    if (!password && !user.password_hash) {
+      // Ancien système sans mot de passe - on accepte
+      const token = jwt.sign(
+        { userId: user.id, email: user.email },
+        'cashoo-jwt-secret-change-this-in-production',
+        { expiresIn: '7d' }
+      );
+
+      return res.json({
+        success: true,
+        token,
+        user: { id: user.id, email: user.email }
+      });
+    }
+
+    // Nouveau système avec mot de passe
+    if (!password) {
+      return res.status(400).json({ error: 'Password required' });
+    }
+
+    // Vérifier le mot de passe (hash base64 temporaire)
     const passwordHash = Buffer.from(password).toString('base64');
     
     if (user.password_hash !== passwordHash) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: 'Invalid email or password' });
     }
 
     // Créer le token JWT
@@ -75,7 +97,7 @@ module.exports = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Auth error:', error);
+    console.error('Login error:', error);
     res.status(500).json({ error: 'Authentication failed', details: error.message });
   }
 };
