@@ -4,18 +4,16 @@ const axios = require('axios');
 const jwt = require('jsonwebtoken');
 
 module.exports = async (req, res) => {
-  // Initialiser Supabase DANS la fonction
   const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_KEY
+    'https://tvfqfjfkmccyrpfkkfva.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2ZnFmamZrbWNjeXJwZmtrZnZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg3Mzk4NzMsImV4cCI6MjA3NDMxNTg3M30.EYjHqSSD1wnghW8yI3LJj88VUtMIxaZ_hv1-FQ8i1DA'
   );
 
-  // Configuration Axios pour Flinks
   const flinksAPI = axios.create({
-    baseURL: `${process.env.FLINKS_API_DOMAIN}/v3`,
+    baseURL: 'https://solutionargentrapide-api.private.fin.ag/v3',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': process.env.FLINKS_X_API_KEY
+      'x-api-key': 'ca640342-86cc-45e4-b3f9-75dbda05b0ae'  // LA CLÉ X-API-KEY !
     },
     timeout: 30000
   });
@@ -39,7 +37,7 @@ module.exports = async (req, res) => {
       return res.status(401).json({ error: 'No token provided' });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, 'cashoo-jwt-secret-change-this-in-production');
     const userId = decoded.userId;
 
     const { loginId } = req.body;
@@ -47,6 +45,7 @@ module.exports = async (req, res) => {
       return res.status(400).json({ error: 'LoginId required' });
     }
 
+    // Étape 1: Autoriser avec Flinks
     const authResponse = await flinksAPI.post('/Authorize', {
       LoginId: loginId,
       MostRecentCached: true
@@ -59,6 +58,7 @@ module.exports = async (req, res) => {
     const requestId = authResponse.data.RequestId;
     await new Promise(resolve => setTimeout(resolve, 2000));
 
+    // Étape 2: Obtenir les détails des comptes
     const accountsResponse = await flinksAPI.post('/GetAccountsDetail', {
       RequestId: requestId,
       DaysOfTransactions: 'Days90'
@@ -67,6 +67,7 @@ module.exports = async (req, res) => {
     const accounts = accountsResponse.data.Accounts || [];
     const transactions = extractTransactions(accounts);
 
+    // Étape 3: Sauvegarder dans Supabase
     const { error: saveError } = await supabase
       .from('flinks_data')
       .upsert({
