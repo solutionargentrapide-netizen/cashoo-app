@@ -1,9 +1,7 @@
 // api/flinks/connect.js
-// Fonction serverless pour obtenir l'URL Flinks iframe
 const jwt = require('jsonwebtoken');
 
 module.exports = async (req, res) => {
-  // Configuration CORS
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -18,23 +16,22 @@ module.exports = async (req, res) => {
   }
 
   try {
-    // Vérifier le token JWT
     const token = req.headers.authorization?.replace('Bearer ', '');
     if (!token) {
       return res.status(401).json({ error: 'No token provided' });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // MÊME SECRET QUE DANS login.js
+    const decoded = jwt.verify(token, 'cashoo-jwt-secret-change-this-in-production');
 
-    // Construire l'URL Flinks
     const params = new URLSearchParams({
-      customerId: process.env.FLINKS_CUSTOMER_ID,
-      redirectUrl: `${process.env.APP_URL || 'https://cashoo.ai'}/flinks-callback`,
+      customerId: 'aeca04b8-0164-453f-88f7-07252d7042bd',
+      redirectUrl: 'https://www.cashoo.ai/flinks-callback',
       demo: 'false',
       language: 'en'
     });
 
-    const flinksUrl = `${process.env.FLINKS_CONNECT_DOMAIN}?${params.toString()}`;
+    const flinksUrl = `https://solutionargentrapide-iframe.private.fin.ag/v2/?${params.toString()}`;
 
     res.json({
       success: true,
