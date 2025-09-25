@@ -12,7 +12,9 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
     "axios": "^1.6.0",
-    "jsonwebtoken": "^9.0.2"
+    "jsonwebtoken": "^9.0.2",
+    "bcryptjs": "^2.4.3",
+    "crypto": "^1.0.1"
   },
   "devDependencies": {
     "vercel": "^32.0.0"
