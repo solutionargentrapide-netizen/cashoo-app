@@ -1,14 +1,15 @@
-// api/auth/login.js - VERSION CORRIGÉE AVEC ANON KEY
+// api/auth/login.js
 const { createClient } = require('@supabase/supabase-js');
 const jwt = require('jsonwebtoken');
 
 module.exports = async (req, res) => {
-  // Utilise la clé ANON qui fonctionne
+  // Initialisation avec les VRAIES clés de ton projet
   const supabase = createClient(
     'https://tvfqfjfkmccyrpfkkfva.supabase.co',
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2ZnFmamZrbWNjeXJwZmtrZnZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg3Mzk4NzMsImV4cCI6MjA3NDMxNTg3M30.QfHPKnzpZ0d6XkPYdVxPd3rbt2Np-x0IbYbzcVLnJqk'
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2ZnFmamZrbWNjeXJwZmtrZnZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg3Mzk4NzMsImV4cCI6MjA3NDMxNTg3M30.EYjHqSSD1wnghW8yI3LJj88VUtMIxaZ_hv1-FQ8i1DA'
   );
 
+  // Configuration CORS
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -29,6 +30,7 @@ module.exports = async (req, res) => {
       return res.status(400).json({ error: 'Invalid email' });
     }
 
+    // Vérifie si l'utilisateur existe
     let { data: user, error } = await supabase
       .from('users')
       .select('*')
@@ -36,9 +38,13 @@ module.exports = async (req, res) => {
       .single();
 
     if (error || !user) {
+      // Créer un nouvel utilisateur
       const { data: newUser, error: createError } = await supabase
         .from('users')
-        .insert({ email })
+        .insert({ 
+          email,
+          created_at: new Date().toISOString()
+        })
         .select()
         .single();
 
@@ -48,12 +54,19 @@ module.exports = async (req, res) => {
       user = newUser;
     }
 
+    // Créer le token JWT
     const token = jwt.sign(
-      { userId: user.id, email: user.email },
+      { 
+        userId: user.id, 
+        email: user.email 
+      },
       'cashoo-jwt-secret-change-this-in-production',
-      { expiresIn: '7d' }
+      { 
+        expiresIn: '7d' 
+      }
     );
 
+    // Créer la session
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
 
@@ -62,9 +75,11 @@ module.exports = async (req, res) => {
       .insert({
         user_id: user.id,
         token,
-        expires_at: expiresAt.toISOString()
+        expires_at: expiresAt.toISOString(),
+        created_at: new Date().toISOString()
       });
 
+    // Retourner la réponse de succès
     res.json({
       success: true,
       token,
@@ -76,6 +91,9 @@ module.exports = async (req, res) => {
 
   } catch (error) {
     console.error('Auth error:', error);
-    res.status(500).json({ error: 'Authentication failed', details: error.message });
+    res.status(500).json({ 
+      error: 'Authentication failed', 
+      details: error.message 
+    });
   }
 };
