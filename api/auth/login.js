@@ -1,3 +1,21 @@
+module.exports = async (req, res) => {
+  // DEBUG - À RETIRER APRÈS
+  console.log('ENV CHECK:', {
+    url_exists: !!process.env.SUPABASE_URL,
+    key_exists: !!process.env.SUPABASE_SERVICE_KEY,
+    jwt_exists: !!process.env.JWT_SECRET,
+    url_value: process.env.SUPABASE_URL?.substring(0, 20) + '...',
+    key_length: process.env.SUPABASE_SERVICE_KEY?.length
+  });
+
+  // Initialiser Supabase DANS la fonction
+  const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_KEY
+  );
+
+  // Reste du code...
+
 // api/auth/login.js
 const { createClient } = require('@supabase/supabase-js');
 const jwt = require('jsonwebtoken');
