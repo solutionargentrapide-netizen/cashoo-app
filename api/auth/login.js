@@ -1,6 +1,4 @@
-// api/auth/login.js - VERSION CORRIGÉE
-// Compatible avec le hash pbkdf2 utilisé dans register.js
-
+// api/auth/login.js - VERSION AVEC SCHEMA PUBLIC EXPLICITE
 const { createClient } = require('@supabase/supabase-js');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
@@ -27,63 +25,57 @@ module.exports = async (req, res) => {
   try {
     const { email, password } = req.body;
     
-    // Validation basique
     if (!email) {
       return res.status(400).json({ error: 'Email required' });
     }
 
-    // Normaliser l'email
     const normalizedEmail = email.toLowerCase().trim();
+    console.log('Looking for user:', normalizedEmail);
 
-    // Récupérer l'utilisateur
+    // IMPORTANT: Utiliser public.users au lieu de users
     let { data: user, error } = await supabase
-      .from('users')
-      .select('id, email, password_hash, email_verified, failed_login_attempts, account_locked_until')
+      .from('public.users')  // ← SCHEMA EXPLICITE
+      .select('*')
       .eq('email', normalizedEmail)
       .single();
 
-    if (error || !user) {
-      console.log('User not found for email:', normalizedEmail);
+    if (error) {
+      console.log('Supabase error:', error);
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    // Vérifier si le compte est verrouillé
-    if (user.account_locked_until && new Date(user.account_locked_until) > new Date()) {
-      const lockTime = new Date(user.account_locked_until);
-      return res.status(423).json({ 
-        error: 'Account locked due to too many failed attempts',
-        lockedUntil: lockTime.toISOString(),
-        remainingTime: Math.ceil((lockTime - new Date()) / 1000 / 60) + ' minutes'
-      });
+    if (!user) {
+      console.log('No user found');
+      return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    // ANCIEN SYSTÈME : Si pas de password dans la requête ET pas de password_hash en DB
+    console.log('User found:', user.email);
+
+    // Si pas de mot de passe requis
     if (!password && !user.password_hash) {
-      // Ancien système sans mot de passe - on accepte
+      console.log('No password system - allowing login');
+      
       const token = jwt.sign(
         { userId: user.id, email: user.email },
         process.env.JWT_SECRET || 'cashoo-jwt-secret-change-this-in-production-minimum-32-characters-long',
         { expiresIn: '7d' }
       );
 
-      // Créer la session
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 7);
 
       await supabase
-        .from('sessions')
+        .from('public.sessions')  // ← SCHEMA EXPLICITE
         .insert({
           user_id: user.id,
           token,
           expires_at: expiresAt.toISOString()
         });
 
-      // Mettre à jour last_login
       await supabase
-        .from('users')
+        .from('public.users')  // ← SCHEMA EXPLICITE
         .update({ 
-          last_login: new Date().toISOString(),
-          failed_login_attempts: 0
+          last_login: new Date().toISOString()
         })
         .eq('id', user.id);
 
@@ -94,142 +86,73 @@ module.exports = async (req, res) => {
       });
     }
 
-    // NOUVEAU SYSTÈME : Vérification du mot de passe
+    // Si mot de passe fourni
     if (!password) {
       return res.status(400).json({ error: 'Password required' });
     }
 
-    // Vérifier le mot de passe avec la MÊME MÉTHODE que register.js
+    if (!user.password_hash) {
+      return res.status(401).json({ error: 'No password set for this account' });
+    }
+
+    // Vérifier le mot de passe
     const isValidPassword = verifyPassword(password, user.password_hash);
     
     if (!isValidPassword) {
-      // Incrémenter les tentatives échouées
-      const newAttempts = (user.failed_login_attempts || 0) + 1;
-      let updateData = { failed_login_attempts: newAttempts };
-      
-      // Verrouiller après 5 tentatives
-      if (newAttempts >= 5) {
-        const lockUntil = new Date();
-        lockUntil.setMinutes(lockUntil.getMinutes() + 15); // Lock for 15 minutes
-        updateData.account_locked_until = lockUntil.toISOString();
-        
-        await supabase
-          .from('users')
-          .update(updateData)
-          .eq('id', user.id);
-        
-        return res.status(423).json({ 
-          error: 'Account locked due to too many failed attempts',
-          lockedUntil: lockUntil.toISOString()
-        });
-      }
-      
-      await supabase
-        .from('users')
-        .update(updateData)
-        .eq('id', user.id);
-      
-      return res.status(401).json({ 
-        error: 'Invalid email or password',
-        remainingAttempts: 5 - newAttempts
-      });
+      return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    // Mot de passe correct ! Réinitialiser les tentatives
-    await supabase
-      .from('users')
-      .update({ 
-        last_login: new Date().toISOString(),
-        failed_login_attempts: 0,
-        account_locked_until: null
-      })
-      .eq('id', user.id);
-
-    // Créer le token JWT
+    // Login réussi
     const token = jwt.sign(
-      { 
-        userId: user.id, 
-        email: user.email,
-        emailVerified: user.email_verified
-      },
+      { userId: user.id, email: user.email },
       process.env.JWT_SECRET || 'cashoo-jwt-secret-change-this-in-production-minimum-32-characters-long',
       { expiresIn: '7d' }
     );
 
-    // Créer la session
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
 
     await supabase
-      .from('sessions')
+      .from('public.sessions')  // ← SCHEMA EXPLICITE
       .insert({
         user_id: user.id,
         token,
         expires_at: expiresAt.toISOString()
       });
 
-    // Logger la connexion (optionnel)
     await supabase
-      .from('auth_logs')
-      .insert({
-        user_id: user.id,
-        action: 'login',
-        ip_address: req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'unknown',
-        user_agent: req.headers['user-agent'] || 'unknown',
-        metadata: { email: user.email }
+      .from('public.users')  // ← SCHEMA EXPLICITE
+      .update({ 
+        last_login: new Date().toISOString()
       })
-      .catch(err => console.log('Could not log login:', err.message));
+      .eq('id', user.id);
 
     res.json({
       success: true,
       token,
-      user: {
-        id: user.id,
-        email: user.email,
-        emailVerified: user.email_verified
-      }
+      user: { id: user.id, email: user.email }
     });
 
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ 
       error: 'Authentication failed', 
-      details: process.env.NODE_ENV !== 'production' ? error.message : undefined
+      details: error.message 
     });
   }
 };
 
-// FONCTION CRITIQUE : Vérifier le mot de passe
-// DOIT être identique à celle utilisée dans register.js
 function verifyPassword(password, hash) {
-  if (!password || !hash) {
-    console.log('Missing password or hash');
-    return false;
-  }
+  if (!password || !hash) return false;
   
   try {
-    // Le hash est stocké comme "salt:hashedPassword"
     const parts = hash.split(':');
-    if (parts.length !== 2) {
-      console.log('Invalid hash format');
-      return false;
-    }
+    if (parts.length !== 2) return false;
     
     const [salt, key] = parts;
-    
-    // Recréer le hash avec le même algorithme que register.js
     const verifyHash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
-    
-    // Comparer les hashs
-    const isValid = key === verifyHash;
-    
-    if (!isValid) {
-      console.log('Password verification failed');
-    }
-    
-    return isValid;
+    return key === verifyHash;
   } catch (error) {
-    console.error('Error verifying password:', error);
     return false;
   }
 }
