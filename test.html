@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Login CASHOO.AI</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #667eea;
+            margin-bottom: 30px;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background: #5a67d8;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .loading {
+            background: #fff3cd;
+            border: 1px solid #ffeeba;
+            color: #856404;
+        }
+        .test-info {
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test de Login CASHOO.AI</h1>
+        
+        <div class="test-info">
+            <strong>Email de test :</strong> <span id="testEmail">-</span><br>
+            <strong>Mot de passe :</strong> TestPass123!
+        </div>
+        
+        <div>
+            <button onclick="runFullTest()" id="fullTestBtn">
+                🚀 Lancer le test complet
+            </button>
+            <button onclick="testRegisterOnly()" id="registerBtn">
+                📝 Tester l'inscription seule
+            </button>
+            <button onclick="testLoginOnly()" id="loginBtn">
+                🔐 Tester le login seul
+            </button>
+            <button onclick="clearResults()">
+                🗑️ Effacer les résultats
+            </button>
+        </div>
+        
+        <div id="result" class="result" style="display:none;"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://www.cashoo.ai/api';
+        let testEmail = '';
+        let testPassword = 'TestPass123!';
+        
+        function generateTestEmail() {
+            testEmail = `test_${Date.now()}@cashoo.ai`;
+            document.getElementById('testEmail').textContent = testEmail;
+            return testEmail;
+        }
+        
+        function log(message, type = 'info') {
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            resultDiv.className = `result ${type}`;
+            resultDiv.textContent += message + '\n';
+            resultDiv.scrollTop = resultDiv.scrollHeight;
+        }
+        
+        function clearResults() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'none';
+            resultDiv.textContent = '';
+        }
+        
+        async function testRegister(email) {
+            log('📝 Test d\'inscription...', 'loading');
+            
+            try {
+                const response = await fetch(`${API_BASE}/auth/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: email,
+                        password: testPassword
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    log('✅ Inscription réussie!', 'success');
+                    log(`Token: ${data.token?.substring(0, 30)}...`, 'success');
+                    return data;
+                } else if (response.status === 409) {
+                    log('⚠️ Utilisateur existe déjà', 'info');
+                    return { email };
+                } else {
+                    log(`❌ Erreur inscription: ${data.error}`, 'error');
+                    throw new Error(data.error);
+                }
+            } catch (error) {
+                log(`❌ Erreur: ${error.message}`, 'error');
+                throw error;
+            }
+        }
+        
+        async function testLogin(email) {
+            log('\n🔐 Test de connexion...', 'loading');
+            
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: email,
+                        password: testPassword
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    log('✅ LOGIN RÉUSSI!', 'success');
+                    log(`Token: ${data.token?.substring(0, 30)}...`, 'success');
+                    log(`User ID: ${data.user?.id}`, 'success');
+                    log('\n🎉 LE PROBLÈME EST RÉSOLU!', 'success');
+                    return data;
+                } else {
+                    log(`❌ LOGIN ÉCHOUÉ: ${data.error}`, 'error');
+                    log('\n🔴 SOLUTION:', 'error');
+                    log('1. Remplacez api/auth/login.js par api-auth-login-FIXED.js', 'error');
+                    log('2. Commitez sur GitHub', 'error');
+                    log('3. Attendez 2-3 minutes', 'error');
+                    log('4. Relancez ce test', 'error');
+                    throw new Error(data.error);
+                }
+            } catch (error) {
+                log(`❌ Erreur: ${error.message}`, 'error');
+                throw error;
+            }
+        }
+        
+        async function testVerifyToken(token) {
+            log('\n🔍 Vérification du token...', 'loading');
+            
+            try {
+                const response = await fetch(`${API_BASE}/auth/verify`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.valid) {
+                    log('✅ Token valide!', 'success');
+                    log(`Email: ${data.email}`, 'success');
+                    log(`User ID: ${data.userId}`, 'success');
+                    return data;
+                } else {
+                    log('❌ Token invalide', 'error');
+                    throw new Error('Invalid token');
+                }
+            } catch (error) {
+                log(`❌ Erreur: ${error.message}`, 'error');
+                throw error;
+            }
+        }
+        
+        async function runFullTest() {
+            clearResults();
+            const email = generateTestEmail();
+            
+            document.getElementById('fullTestBtn').disabled = true;
+            log('🚀 DÉBUT DU TEST COMPLET\n', 'info');
+            log(`Email: ${email}`, 'info');
+            log(`Password: ${testPassword}\n`, 'info');
+            
+            try {
+                // 1. Inscription
+                await testRegister(email);
+                
+                // 2. Attendre un peu
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // 3. Login
+                const loginResult = await testLogin(email);
+                
+                // 4. Vérifier le token
+                if (loginResult && loginResult.token) {
+                    await testVerifyToken(loginResult.token);
+                }
+                
+                log('\n✅ TOUS LES TESTS RÉUSSIS!', 'success');
+            } catch (error) {
+                log(`\n❌ TEST ÉCHOUÉ`, 'error');
+            } finally {
+                document.getElementById('fullTestBtn').disabled = false;
+            }
+        }
+        
+        async function testRegisterOnly() {
+            clearResults();
+            const email = generateTestEmail();
+            
+            document.getElementById('registerBtn').disabled = true;
+            log('📝 TEST D\'INSCRIPTION SEULE\n', 'info');
+            
+            try {
+                await testRegister(email);
+                log('\n✅ Test d\'inscription terminé', 'success');
+            } catch (error) {
+                log('\n❌ Inscription échouée', 'error');
+            } finally {
+                document.getElementById('registerBtn').disabled = false;
+            }
+        }
+        
+        async function testLoginOnly() {
+            clearResults();
+            
+            const email = prompt('Email à tester:', testEmail || 'test@cashoo.ai');
+            if (!email) return;
+            
+            document.getElementById('loginBtn').disabled = true;
+            log('🔐 TEST DE LOGIN SEUL\n', 'info');
+            
+            try {
+                await testLogin(email);
+                log('\n✅ Test de login terminé', 'success');
+            } catch (error) {
+                log('\n❌ Login échoué', 'error');
+            } finally {
+                document.getElementById('loginBtn').disabled = false;
+            }
+        }
+        
+        // Générer un email au chargement
+        generateTestEmail();
+    </script>
+</body>
+</html>
