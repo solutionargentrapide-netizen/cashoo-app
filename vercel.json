@@ -1,0 +1,83 @@
+{
+  "rewrites": [
+    {
+      "source": "/",
+      "destination": "/login.html"
+    },
+    {
+      "source": "/login",
+      "destination": "/login.html"
+    },
+    {
+      "source": "/register",
+      "destination": "/register.html"
+    },
+    {
+      "source": "/dashboard",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/test",
+      "destination": "/test.html"
+    },
+    {
+      "source": "/forgot-password",
+      "destination": "/forgot-password.html"
+    },
+    {
+      "source": "/reset-password",
+      "destination": "/reset-password.html"
+    }
+  ],
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "functions": {
+    "api/auth/*.js": {
+      "maxDuration": 10
+    },
+    "api/flinks/*.js": {
+      "maxDuration": 30
+    }
+  },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
+      ]
+    },
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET,OPTIONS,PATCH,DELETE,POST,PUT"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "X-Requested-With, X-HTTP-Method-Override, Content-Type, Accept, Authorization"
+        }
+      ]
+    }
+  ],
+  "regions": ["iad1"]
+}
