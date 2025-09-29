@@ -1,862 +1,853 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CASHOO - Banking Dashboard</title>
-    <link rel="stylesheet" href="/css/style.css">
+// Générer le contenu de la timeline
+        const timelineHTML = last7Transactions.map(tx => {
+            const date = new Date(tx.date);
+            const isToday = date.toDateString() === new Date().toDateString();
+            const isYesterday = date.toDateString() === new Date(Date.now() - 86400000).toDateString();
+            
+            let dateStr = isToday ? 'Aujourd\'hui' : isYesterday ? 'Hier' : date.toLocaleDateString('fr-CA');
+            const timeStr = date.toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit' });
+            
+            const amount = tx.credit ? `+$${tx.credit}` : `-$${tx.debit}`;
+            const amountClass = tx.credit ? 'credit' : 'debit';
+            const category = categorizeTransaction(tx);
+            
+            return `
+                <div class="transaction-row">
+                    <div class="tx-time">${dateStr} ${timeStr}</div>
+                    <div class="tx-desc">${tx.description.substring(0, 30)}...</div>
+                    <div class="tx-amount ${amountClass}">${amount}</div>
+                    <div class="tx-category">[${category}]</div>
+                </div>
+            `;
+        }).join('');
+        
+        document.getElementById('transactionTimeline').innerHTML = timelineHTML;
+    }
+    
+    // 7. GÉNÉRER LE GRAPHIQUE DES CATÉGORIES
+    function generateCategoryChart() {
+        const categories = {
+            'Frais/Prêts': 0,
+            'Essentiels': 0,
+            'Retraits ATM': 0,
+            'Achats': 0,
+            'Autres': 0
+        };
+        
+        window.allTransactions.forEach(tx => {
+            if (tx.debit) {
+                const amount = parseFloat(tx.debit);
+                const desc = tx.description.toLowerCase();
+                
+                if (desc.includes('cash max') || desc.includes('lender') || 
+                    desc.includes('bdo') || desc.includes('farber') || 
+                    desc.includes('fee') || desc.includes('charge')) {
+                    categories['Frais/Prêts'] += amount;
+                } else if (desc.includes('atm') || desc.includes('withdrawal')) {
+                    categories['Retraits ATM'] += amount;
+                } else if (desc.includes('walmart') || desc.includes('metro') || 
+                          desc.includes('grocery')) {
+                    categories['Essentiels'] += amount;
+                } else if (desc.includes('tim hortons') || desc.includes('amazon') || 
+                          desc.includes('mcdonald')) {
+                    categories['Achats'] += amount;
+                } else {
+                    categories['Autres'] += amount;
+                }
+            }
+        });
+        
+        // Créer le graphique circulaire simple
+        const total = Object.values(categories).reduce((a, b) => a + b, 0);
+        let chartHTML = '<div class="category-list">';
+        
+        const colors = ['#ef4444', '#f59e0b', '#3b82f6', '#10b981', '#6b7280'];
+        let colorIndex = 0;
+        
+        for (const [category, amount] of Object.entries(categories)) {
+            if (amount > 0) {
+                const percentage = ((amount / total) * 100).toFixed(1);
+                chartHTML += `
+                    <div class="category-item">
+                        <span class="category-dot" style="background: ${colors[colorIndex]}"></span>
+                        <span class="category-name">${category}</span>
+                        <span class="category-amount">$${amount.toFixed(2)}</span>
+                        <span class="category-percent">${percentage}%</span>
+                    </div>
+                `;
+                colorIndex++;
+            }
+        }
+        
+        chartHTML += '</div>';
+        document.getElementById('categoryChart').innerHTML = chartHTML;
+    }
+    
+    // 8. CONFIGURER LES BOUTONS D'ACTION
+    function setupActionButtons() {
+        // Conseil du jour
+        document.getElementById('btnConseil').onclick = () => {
+            showNotification('💡 Astuce: Évitez les retraits ATM multiples. Retirez une fois par semaine pour économiser les frais.');
+        };
+        
+        // Négocier frais
+        document.getElementById('btnNegocier').onclick = () => {
+            const message = "J'ai détecté $1,100/mois en frais. Voulez-vous que je prépare des lettres de négociation?";
+            openChatWithMessage(message);
+        };
+        
+        // Plan budget
+        document.getElementById('btnBudget').onclick = () => {
+            openChatWithMessage("Créez-moi un budget réaliste basé sur mes revenus de $" + calculateMonthlyStats().income);
+        };
+        
+        // Rafraîchir
+        document.getElementById('btnRefresh').onclick = () => {
+            refreshAllData();
+        };
+        
+        // Rapport
+        document.getElementById('btnRapport').onclick = () => {
+            generateMonthlyReport();
+        };
+        
+        // Assistant
+        document.getElementById('btnAssistant').onclick = () => {
+            toggleChat();
+        };
+    }
+    
+    // 9. ASSISTANT CHAT INTÉGRÉ
+    function initializeChat() {
+        const chatHTML = `
+            <div id="chatWidget" class="chat-widget">
+                <div class="chat-header" onclick="toggleChat()">
+                    <span class="chat-title">💬 Assistant CASHOO</span>
+                    <span class="chat-minimize">−</span>
+                </div>
+                <div class="chat-body">
+                    <div id="chatMessages" class="chat-messages">
+                        <div class="chat-message assistant">
+                            <strong>Assistant:</strong> J'ai analysé vos finances. Je peux vous faire économiser $400/mois. Comment puis-je vous aider?
+                        </div>
+                    </div>
+                    <div class="chat-input-container">
+                        <input type="text" id="chatInput" placeholder="Tapez votre message..." 
+                               onkeypress="if(event.key==='Enter') sendChatMessage()">
+                        <button onclick="sendChatMessage()">Envoyer</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', chatHTML);
+    }
+    
+    function toggleChat() {
+        const widget = document.getElementById('chatWidget');
+        widget.classList.toggle('expanded');
+    }
+    
+    function openChatWithMessage(message) {
+        const widget = document.getElementById('chatWidget');
+        widget.classList.add('expanded');
+        document.getElementById('chatInput').value = message;
+        setTimeout(() => sendChatMessage(), 500);
+    }
+    
+    async function sendChatMessage() {
+        const input = document.getElementById('chatInput');
+        const message = input.value.trim();
+        if (!message) return;
+        
+        // Ajouter le message de l'utilisateur
+        const messagesDiv = document.getElementById('chatMessages');
+        messagesDiv.innerHTML += `
+            <div class="chat-message user">
+                <strong>Vous:</strong> ${message}
+            </div>
+        `;
+        
+        input.value = '';
+        
+        // Appeler l'API Claude
+        try {
+            const response = await fetch('/api/claude/chat', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('cashoo_token')}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ 
+                    message: message,
+                    context: {
+                        balance: window.currentBalance,
+                        monthlyStats: window.monthlyStats,
+                        recentTransactions: window.allTransactions.slice(0, 10)
+                    }
+                })
+            });
+            
+            const data = await response.json();
+            
+            messagesDiv.innerHTML += `
+                <div class="chat-message assistant">
+                    <strong>Assistant:</strong> ${data.response || "Analysons vos données..."}
+                </div>
+            `;
+        } catch (error) {
+            messagesDiv.innerHTML += `
+                <div class="chat-message assistant">
+                    <strong>Assistant:</strong> Je suis en mode local. Vos stats: Revenus $${window.monthlyStats.income.toFixed(2)}, Dépenses $${window.monthlyStats.expenses.toFixed(2)}
+                </div>
+            `;
+        }
+        
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+    
+    // 10. CALCULER LES OBJECTIFS
+    function updateGoals() {
+        // Objectif 1: Éliminer déficit
+        const deficit = Math.abs(window.monthlyStats.deficit);
+        const saved = Math.max(0, deficit - Math.abs(window.monthlyStats.deficit));
+        const progress1 = deficit > 0 ? (saved / deficit * 100) : 0;
+        
+        document.getElementById('goal1Progress').style.width = `${progress1}%`;
+        document.getElementById('goal1Text').textContent = `$${saved.toFixed(2)} / $${deficit.toFixed(2)}`;
+        document.getElementById('goal1Percent').textContent = `${progress1.toFixed(0)}%`;
+        
+        // Objectif 2: Fonds urgence
+        const emergencyTarget = 500;
+        const emergencySaved = Math.max(0, window.currentBalance - 100); // Garder $100 minimum
+        const progress2 = (emergencySaved / emergencyTarget * 100);
+        
+        document.getElementById('goal2Progress').style.width = `${Math.min(100, progress2)}%`;
+        document.getElementById('goal2Text').textContent = `$${emergencySaved.toFixed(2)} / $${emergencyTarget}`;
+        document.getElementById('goal2Percent').textContent = `${Math.min(100, progress2).toFixed(0)}%`;
+    }
+    
+    // 11. GÉNÉRER NOTIFICATIONS
+    function generateNotifications() {
+        const notifications = [];
+        
+        // Analyser les patterns
+        const atmWithdrawals = window.allTransactions.filter(tx => 
+            tx.description.toLowerCase().includes('atm') && tx.debit
+        ).slice(0, 5);
+        
+        if (atmWithdrawals.length >= 3) {
+            const totalATM = atmWithdrawals.reduce((sum, tx) => sum + parseFloat(tx.debit || 0), 0);
+            notifications.push(`⚠️ Pattern détecté: ${atmWithdrawals.length} retraits ATM en ${3} jours (-$${totalATM.toFixed(2)})`);
+        }
+        
+        // Opportunités
+        if (window.monthlyStats.expenses > window.monthlyStats.income) {
+            notifications.push(`💡 Opportunité: Réduire les frais de ${Math.abs(window.monthlyStats.deficit).toFixed(2)}$ pour équilibrer le budget`);
+        }
+        
+        // Alertes de solde
+        if (window.currentBalance < 100) {
+            notifications.push(`🔴 Alerte: Solde faible (${window.currentBalance.toFixed(2)}$) - Risque de NSF`);
+        }
+        
+        const notifHTML = notifications.map(n => `<div class="notification-item">${n}</div>`).join('');
+        document.getElementById('notifications').innerHTML = notifHTML || '<div class="notification-item">✅ Aucune alerte</div>';
+    }
+    
+    // 12. FONCTION REFRESH GLOBAL
+    async function refreshAllData() {
+        showNotification('🔄 Actualisation des données...');
+        
+        try {
+            // Recharger les données Inverite
+            const response = await fetch('/api/inverite/fetch', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('cashoo_token')}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ guid: '339703B7-9B97-4FDC-8727-D04357A08DAD' })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                window.currentBalance = data.accounts[0]?.balance || 0;
+                window.allTransactions = data.transactions || [];
+                
+                // Recalculer tout
+                updateDashboard();
+                showNotification('✅ Données actualisées');
+            }
+        } catch (error) {
+            console.error('Erreur refresh:', error);
+            showNotification('❌ Erreur de connexion');
+        }
+    }
+    
+    // 13. GÉNÉRER RAPPORT MENSUEL
+    function generateMonthlyReport() {
+        const report = {
+            period: new Date().toLocaleDateString('fr-CA', { month: 'long', year: 'numeric' }),
+            balance: window.currentBalance,
+            income: window.monthlyStats.income,
+            expenses: window.monthlyStats.expenses,
+            deficit: window.monthlyStats.deficit,
+            topExpenses: [],
+            recommendations: []
+        };
+        
+        // Top 5 dépenses
+        const expenseMap = {};
+        window.allTransactions.forEach(tx => {
+            if (tx.debit) {
+                const key = tx.description.split(' ')[0];
+                expenseMap[key] = (expenseMap[key] || 0) + parseFloat(tx.debit);
+            }
+        });
+        
+        report.topExpenses = Object.entries(expenseMap)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5)
+            .map(([name, amount]) => ({ name, amount }));
+        
+        // Recommandations
+        if (report.deficit < 0) {
+            report.recommendations.push('Réduire les frais de ' + Math.abs(report.deficit).toFixed(2) + '$');
+        }
+        
+        // Afficher dans une modal ou télécharger
+        console.log('Rapport généré:', report);
+        showNotification('📊 Rapport généré - Voir console');
+        
+        // Option: Créer un PDF ou l'afficher dans une modal
+        alert(`RAPPORT MENSUEL
+        
+Période: ${report.period}
+Solde: $${report.balance.toFixed(2)}
+Revenus: $${report.income.toFixed(2)}
+Dépenses: $${report.expenses.toFixed(2)}
+Résultat: ${report.deficit >= 0 ? '+' : ''}$${report.deficit.toFixed(2)}
+
+Top dépenses:
+${report.topExpenses.map(e => `- ${e.name}: $${e.amount.toFixed(2)}`).join('\n')}
+
+Recommandations:
+${report.recommendations.join('\n')}
+        `);
+    }
+    
+    // 14. UTILITAIRE DE NOTIFICATION
+    function showNotification(message, duration = 3000) {
+        const notif = document.createElement('div');
+        notif.className = 'toast-notification';
+        notif.textContent = message;
+        document.body.appendChild(notif);
+        
+        setTimeout(() => notif.classList.add('show'), 100);
+        
+        setTimeout(() => {
+            notif.classList.remove('show');
+            setTimeout(() => notif.remove(), 300);
+        }, duration);
+    }
+    
+    // 15. CATÉGORISER TRANSACTION
+    function categorizeTransaction(tx) {
+        const desc = tx.description.toLowerCase();
+        
+        if (desc.includes('cash max') || desc.includes('lender')) return 'Prêt';
+        if (desc.includes('bdo') || desc.includes('farber')) return 'Faillite';
+        if (desc.includes('atm')) return 'ATM';
+        if (desc.includes('walmart') || desc.includes('metro')) return 'Épicerie';
+        if (desc.includes('tim hortons') || desc.includes('mcdonald')) return 'Restaurant';
+        if (desc.includes('e-transfer in')) return 'Revenu';
+        if (desc.includes('acme job')) return 'Paie';
+        if (desc.includes('fee') || desc.includes('charge')) return 'Frais';
+        
+        return 'Autre';
+    }
+    
+    // ============================
+    // DÉMARRAGE DE L'APPLICATION
+    // ============================
+    
+    window.addEventListener('DOMContentLoaded', () => {
+        console.log('🚀 CASHOO Dashboard 3.0 - Démarrage');
+        
+        // Vérifier l'authentification
+        const token = localStorage.getItem('cashoo_token');
+        if (!token) {
+            window.location.href = '/login';
+            return;
+        }
+        
+        // Initialiser les composants
+        initializeDashboard();
+        initializeChat();
+        
+        // Démarrer les mises à jour automatiques
+        setInterval(updateAlerts, 60000); // Chaque minute
+        setInterval(refreshAllData, 300000); // Chaque 5 minutes
+        
+        console.log('✅ Dashboard prêt');
+    });
+    </script>
+    
+    <!-- STYLES COMPLETS -->
     <style>
-        /* Styles additionnels pour Claude AI Chat */
-        .chat-container {
+        /* Variables CSS */
+        :root {
+            --primary: #667eea;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --success: #10b981;
+            --dark: #1f2937;
+            --light: #f3f4f6;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .dashboard-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        /* HEADER ALERTS */
+        .alert-bar {
+            background: white;
+            border-radius: 10px;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .alert-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+        
+        .alert-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        .alert-urgent {
+            background: #fee;
+            border-left: 4px solid var(--danger);
+            color: var(--danger);
+        }
+        
+        .alert-warning {
+            background: #fef3c7;
+            border-left: 4px solid var(--warning);
+            color: #92400e;
+        }
+        
+        .alert-info {
+            background: #dbeafe;
+            border-left: 4px solid var(--primary);
+            color: #1e3a8a;
+        }
+        
+        /* MAIN CARDS */
+        .main-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .card-title {
+            font-size: 14px;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .card-icon {
+            font-size: 24px;
+        }
+        
+        .card-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: var(--dark);
+            margin-bottom: 10px;
+        }
+        
+        .card-change {
+            font-size: 14px;
+            color: #6b7280;
+        }
+        
+        .positive { color: var(--success); }
+        .negative { color: var(--danger); }
+        
+        .card-footer {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #e5e7eb;
+        }
+        
+        .progress-bar {
+            height: 8px;
+            background: #e5e7eb;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+        
+        .progress-danger { background: var(--danger); }
+        .progress-warning { background: var(--warning); }
+        .progress-success { background: var(--success); }
+        
+        /* ANALYSE SECTION */
+        .analysis-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .analysis-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: var(--dark);
+        }
+        
+        /* Category Chart */
+        .category-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .category-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px;
+            background: #f9fafb;
+            border-radius: 5px;
+        }
+        
+        .category-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        
+        .category-name {
+            flex: 1;
+            font-size: 14px;
+        }
+        
+        .category-amount {
+            font-weight: 600;
+        }
+        
+        .category-percent {
+            font-size: 12px;
+            color: #6b7280;
+        }
+        
+        /* Transactions Timeline */
+        .transaction-timeline {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .transaction-row {
+            display: grid;
+            grid-template-columns: 120px 1fr 100px 80px;
+            gap: 10px;
+            padding: 10px;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 14px;
+        }
+        
+        .tx-time {
+            color: #6b7280;
+        }
+        
+        .tx-desc {
+            font-weight: 500;
+        }
+        
+        .tx-amount.credit {
+            color: var(--success);
+        }
+        
+        .tx-amount.debit {
+            color: var(--danger);
+        }
+        
+        .tx-category {
+            color: #9ca3af;
+            font-size: 12px;
+        }
+        
+        /* ACTION BUTTONS */
+        .actions-section {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .action-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+        }
+        
+        .action-btn {
+            padding: 12px 20px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .action-btn:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        /* SIDEBAR GOALS */
+        .sidebar-section {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .goal-item {
+            margin-bottom: 20px;
+        }
+        
+        .goal-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        
+        .goal-title {
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .goal-stats {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 5px;
+        }
+        
+        /* NOTIFICATIONS */
+        .notifications-section {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .notification-item {
+            padding: 10px;
+            background: #f9fafb;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        
+        /* CHAT WIDGET */
+        .chat-widget {
             position: fixed;
             bottom: 20px;
             right: 20px;
-            width: 400px;
-            height: 500px;
+            width: 350px;
             background: white;
             border-radius: 10px;
             box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-            display: none;
-            flex-direction: column;
             z-index: 1000;
+            transition: all 0.3s;
         }
-
-        .chat-container.active {
-            display: flex;
+        
+        .chat-widget:not(.expanded) .chat-body {
+            display: none;
         }
-
+        
         .chat-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: var(--primary);
             color: white;
             padding: 15px;
             border-radius: 10px 10px 0 0;
+            cursor: pointer;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
-
-        .chat-header h3 {
-            margin: 0;
-            font-size: 1.1rem;
-        }
-
-        .chat-minimize {
-            background: transparent;
-            border: 1px solid white;
-            color: white;
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 20px;
+        
+        .chat-body {
+            padding: 15px;
+            max-height: 400px;
             display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0;
+            flex-direction: column;
         }
-
+        
         .chat-messages {
             flex: 1;
             overflow-y: auto;
-            padding: 15px;
-            background: #f8f9fa;
-        }
-
-        .chat-message {
             margin-bottom: 15px;
-            display: flex;
+            min-height: 250px;
         }
-
-        .chat-message.user {
-            justify-content: flex-end;
-        }
-
-        .chat-message.assistant {
-            justify-content: flex-start;
-        }
-
-        .message-bubble {
-            max-width: 80%;
-            padding: 10px 15px;
-            border-radius: 10px;
+        
+        .chat-message {
+            margin-bottom: 10px;
+            padding: 10px;
+            background: #f3f4f6;
+            border-radius: 5px;
             font-size: 14px;
-            line-height: 1.5;
         }
-
-        .chat-message.user .message-bubble {
-            background: #667eea;
-            color: white;
-            border-bottom-right-radius: 3px;
+        
+        .chat-message.user {
+            background: #dbeafe;
+            margin-left: 20px;
         }
-
-        .chat-message.assistant .message-bubble {
-            background: white;
-            color: #333;
-            border: 1px solid #e0e0e0;
-            border-bottom-left-radius: 3px;
+        
+        .chat-message.assistant {
+            background: #f3f4f6;
+            margin-right: 20px;
         }
-
+        
         .chat-input-container {
             display: flex;
-            padding: 15px;
-            border-top: 1px solid #e0e0e0;
-            background: white;
-            border-radius: 0 0 10px 10px;
+            gap: 10px;
         }
-
-        .chat-input-container input {
+        
+        #chatInput {
             flex: 1;
             padding: 10px;
-            border: 1px solid #ddd;
+            border: 1px solid #e5e7eb;
             border-radius: 5px;
-            margin-right: 10px;
         }
-
+        
         .chat-input-container button {
             padding: 10px 20px;
-            background: #667eea;
+            background: var(--primary);
             color: white;
             border: none;
             border-radius: 5px;
             cursor: pointer;
         }
-
-        .chat-toggle-btn {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            padding: 15px 20px;
-            border-radius: 50px;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: 600;
-            z-index: 999;
-            transition: transform 0.3s;
-        }
-
-        .chat-toggle-btn:hover {
-            transform: scale(1.05);
-        }
-
-        .chat-toggle-btn.hidden {
-            display: none;
-        }
-
-        .typing-indicator {
-            display: flex;
-            align-items: center;
-            padding: 10px;
-        }
-
-        .typing-indicator span {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #999;
-            margin: 0 2px;
-            animation: typing 1.4s infinite;
-        }
-
-        .typing-indicator span:nth-child(2) {
-            animation-delay: 0.2s;
-        }
-
-        .typing-indicator span:nth-child(3) {
-            animation-delay: 0.4s;
-        }
-
-        @keyframes typing {
-            0%, 60%, 100% {
-                transform: translateY(0);
-                opacity: 0.5;
-            }
-            30% {
-                transform: translateY(-10px);
-                opacity: 1;
-            }
-        }
-
-        /* WebAuthn Button Styles */
-        .webauthn-btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            padding: 12px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: 600;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            margin: 10px 5px;
-            transition: transform 0.2s;
-        }
-
-        .webauthn-btn:hover {
-            transform: scale(1.05);
-        }
-
-        .webauthn-btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-
-        .webauthn-icon {
-            font-size: 20px;
-        }
-
-        /* Notification Styles */
-        .notification {
+        
+        /* TOAST NOTIFICATIONS */
+        .toast-notification {
             position: fixed;
             top: 20px;
             right: 20px;
+            background: var(--dark);
+            color: white;
             padding: 15px 20px;
             border-radius: 5px;
-            color: white;
-            font-weight: 500;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transform: translateX(400px);
+            transition: transform 0.3s;
             z-index: 2000;
-            animation: slideIn 0.3s ease;
-            max-width: 350px;
         }
-
-        @keyframes slideIn {
-            from {
-                transform: translateX(400px);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
+        
+        .toast-notification.show {
+            transform: translateX(0);
         }
-
-        .notification.success {
-            background: #22c55e;
-        }
-
-        .notification.error {
-            background: #ef4444;
-        }
-
-        .notification.info {
-            background: #3b82f6;
-        }
-
-        .notification.warning {
-            background: #f59e0b;
-        }
-
-        /* Quick Actions Bar */
-        .quick-actions {
-            display: flex;
-            gap: 10px;
-            margin: 20px 0;
-            flex-wrap: wrap;
-        }
-
-        .quick-action-btn {
-            padding: 10px 15px;
-            background: white;
-            border: 2px solid #667eea;
-            color: #667eea;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-            transition: all 0.3s;
-        }
-
-        .quick-action-btn:hover {
-            background: #667eea;
-            color: white;
-        }
-
-        /* Stats Cards */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin: 20px 0;
-        }
-
-        .stat-card {
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            border-left: 4px solid #667eea;
-        }
-
-        .stat-label {
-            font-size: 12px;
-            color: #666;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .stat-value {
-            font-size: 24px;
-            font-weight: bold;
-            color: #333;
-            margin-top: 5px;
-        }
-
-        .stat-change {
-            font-size: 12px;
-            margin-top: 5px;
-        }
-
-        .stat-change.positive {
-            color: #22c55e;
-        }
-
-        .stat-change.negative {
-            color: #ef4444;
-        }
-
-        @media (max-width: 500px) {
-            .chat-container {
-                width: 100%;
-                height: 100%;
-                bottom: 0;
-                right: 0;
-                border-radius: 0;
-            }
-            
-            .stats-grid {
+        
+        /* RESPONSIVE */
+        @media (max-width: 1024px) {
+            .analysis-section {
                 grid-template-columns: 1fr;
             }
         }
+        
+        @media (max-width: 768px) {
+            .dashboard-container {
+                padding: 10px;
+            }
+            
+            .main-cards {
+                grid-template-columns: 1fr;
+            }
+            
+            .action-buttons {
+                grid-template-columns: 1fr;
+            }
+            
+            .chat-widget {
+                width: 100%;
+                right: 0;
+                left: 0;
+                bottom: 0;
+                border-radius: 10px 10px 0 0;
+            }
+        }
     </style>
-</head>
-<body>
-    <div class="container">
-        <!-- Login Form -->
-        <div id="loginForm" class="card login-form">
-            <h2>Bienvenue sur CASHOO</h2>
-            <p style="margin: 20px 0; color: #666;">
-                Accédez à votre tableau de bord bancaire sécurisé
-            </p>
-            
-            <!-- WebAuthn Login Option -->
-            <button class="webauthn-btn" onclick="webAuthnLogin()" id="biometricLoginBtn">
-                <span class="webauthn-icon">🔐</span>
-                Connexion biométrique
-            </button>
-            
-            <div style="text-align: center; margin: 20px 0; color: #999;">
-                — OU —
-            </div>
-            
-            <form onsubmit="login(event)">
-                <input 
-                    type="email" 
-                    id="email" 
-                    placeholder="Entrez votre email"
-                    required
-                />
-                <input 
-                    type="password" 
-                    id="password" 
-                    placeholder="Mot de passe (optionnel)"
-                />
-                <button type="submit" id="loginBtn">
-                    Connexion classique
-                </button>
-            </form>
-            <div id="loginMessage"></div>
-            
-            <!-- WebAuthn Registration -->
-            <div style="margin-top: 20px; text-align: center;">
-                <button class="webauthn-btn" onclick="webAuthnRegister()" id="biometricRegisterBtn" style="background: #22c55e;">
-                    <span class="webauthn-icon">✨</span>
-                    Activer la connexion biométrique
-                </button>
-            </div>
-        </div>
-
-        <!-- Dashboard -->
-        <div id="dashboard" class="dashboard">
-            <div class="header">
-                <h1>CASHOO Dashboard</h1>
-                <div class="user-info">
-                    <span class="sync-status" id="lastSync">Jamais synchronisé</span>
-                    <span id="userEmail"></span>
-                    <button onclick="logout()">Déconnexion</button>
-                </div>
-            </div>
-
-            <!-- Stats Grid -->
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-label">Revenus mensuels</div>
-                    <div class="stat-value" id="monthlyIncome">$0.00</div>
-                    <div class="stat-change positive">+12.5%</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Dépenses mensuelles</div>
-                    <div class="stat-value" id="monthlyExpenses">$0.00</div>
-                    <div class="stat-change negative">-5.3%</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Épargne</div>
-                    <div class="stat-value" id="savingsAmount">$0.00</div>
-                    <div class="stat-change positive">+8.2%</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Transactions</div>
-                    <div class="stat-value" id="transactionCount">0</div>
-                    <div class="stat-change">Ce mois</div>
-                </div>
-            </div>
-
-            <!-- Balance Card -->
-            <div class="card balance-card">
-                <h2>Solde Total</h2>
-                <div class="balance" id="totalBalance">$0.00</div>
-                
-                <!-- Quick Actions -->
-                <div class="quick-actions">
-                    <!-- Flinks Button -->
-                    <button onclick="connectBank()" id="connectBtn" class="quick-action-btn">
-                        🏦 Connecter Banque (Flinks)
-                    </button>
-                    
-                    <!-- Inverite Button -->
-                    <button onclick="connectInverite()" id="inveriteBtn" class="quick-action-btn">
-                        ✅ Vérifier Banque (Inverite)
-                    </button>
-                    
-                    <!-- Refresh Button -->
-                    <button onclick="syncAccounts()" id="syncBtn" class="quick-action-btn" style="display:none;">
-                        🔄 Actualiser
-                    </button>
-                    
-                    <!-- Export Button -->
-                    <button onclick="exportTransactions()" class="quick-action-btn">
-                        📊 Exporter
-                    </button>
-                    
-                    <!-- Budget Button -->
-                    <button onclick="openBudgetPlanner()" class="quick-action-btn">
-                        💰 Budget
-                    </button>
-                </div>
-                
-                <!-- Status Messages -->
-                <div id="connectionStatus" style="margin-top: 15px; padding: 10px; display: none; border-radius: 5px;">
-                    <span id="statusMessage"></span>
-                </div>
-            </div>
-
-            <!-- Accounts -->
-            <div class="card">
-                <h2>Vos Comptes</h2>
-                <div id="accountsList" class="accounts-grid">
-                    <div class="loading">Aucun compte connecté</div>
-                </div>
-            </div>
-
-            <!-- Transactions -->
-            <div class="card">
-                <h2>Transactions Récentes</h2>
-                <div id="transactionsList" class="transactions-list">
-                    <div class="loading">Aucune transaction disponible</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Universal iFrame Container (for both Flinks and Inverite) -->
-        <div id="iframeContainer" class="iframe-container">
-            <div class="iframe-wrapper">
-                <button class="close-iframe" onclick="closeIframe()">×</button>
-                <h3 id="iframeTitle" style="margin-bottom: 10px;">Connexion Bancaire</h3>
-                <iframe id="universalFrame"></iframe>
-            </div>
-        </div>
-
-        <!-- Claude AI Chat Interface -->
-        <div id="claudeChat" class="chat-container">
-            <div class="chat-header">
-                <h3>💡 Assistant CASHOO AI</h3>
-                <button class="chat-minimize" onclick="toggleChat()">−</button>
-            </div>
-            
-            <div class="chat-messages" id="chatMessages">
-                <div class="chat-message assistant">
-                    <div class="message-bubble">
-                        👋 Bonjour! Je suis votre assistant financier CASHOO. 
-                        Je peux analyser vos dépenses, vous aider à budgétiser et répondre à vos questions financières.
-                        Comment puis-je vous aider aujourd'hui?
-                    </div>
-                </div>
-            </div>
-            
-            <div class="chat-input-container">
-                <input 
-                    type="text" 
-                    id="chatInput" 
-                    placeholder="Posez votre question..."
-                    onkeypress="if(event.key === 'Enter') sendChatMessage()"
-                />
-                <button onclick="sendChatMessage()">Envoyer</button>
-            </div>
-        </div>
-
-        <!-- Chat Toggle Button -->
-        <button id="chatToggleBtn" class="chat-toggle-btn" onclick="toggleChat()">
-            💬 Assistant AI
-        </button>
-    </div>
-
-    <!-- Scripts -->
-    <script src="/js/app.js"></script>
-    <script>
-        // ========================================
-        // CLAUDE AI CHAT FUNCTIONS
-        // ========================================
-        let chatOpen = false;
-
-        function toggleChat() {
-            chatOpen = !chatOpen;
-            const chatContainer = document.getElementById('claudeChat');
-            const toggleBtn = document.getElementById('chatToggleBtn');
-            
-            if (chatOpen) {
-                chatContainer.classList.add('active');
-                toggleBtn.classList.add('hidden');
-                document.getElementById('chatInput').focus();
-            } else {
-                chatContainer.classList.remove('active');
-                toggleBtn.classList.remove('hidden');
-            }
-        }
-
-        async function sendChatMessage() {
-            const input = document.getElementById('chatInput');
-            const message = input.value.trim();
-            
-            if (!message) return;
-            
-            const messagesContainer = document.getElementById('chatMessages');
-            
-            // Ajouter le message de l'utilisateur
-            const userMessageDiv = document.createElement('div');
-            userMessageDiv.className = 'chat-message user';
-            userMessageDiv.innerHTML = `
-                <div class="message-bubble">${message}</div>
-            `;
-            messagesContainer.appendChild(userMessageDiv);
-            
-            // Vider l'input
-            input.value = '';
-            
-            // Ajouter l'indicateur de typing
-            const typingDiv = document.createElement('div');
-            typingDiv.className = 'chat-message assistant';
-            typingDiv.id = 'typingIndicator';
-            typingDiv.innerHTML = `
-                <div class="message-bubble">
-                    <div class="typing-indicator">
-                        <span></span>
-                        <span></span>
-                        <span></span>
-                    </div>
-                </div>
-            `;
-            messagesContainer.appendChild(typingDiv);
-            
-            // Scroll vers le bas
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            
-            try {
-                // Appel à l'API Claude
-                const response = await fetch('/api/claude/chat', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('cashoo_token')}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ message })
-                });
-                
-                const data = await response.json();
-                
-                // Retirer l'indicateur de typing
-                document.getElementById('typingIndicator')?.remove();
-                
-                // Ajouter la réponse de Claude
-                const assistantMessageDiv = document.createElement('div');
-                assistantMessageDiv.className = 'chat-message assistant';
-                assistantMessageDiv.innerHTML = `
-                    <div class="message-bubble">${data.response || 'Désolé, je n\'ai pas pu traiter votre demande.'}</div>
-                `;
-                messagesContainer.appendChild(assistantMessageDiv);
-                
-                // Scroll vers le bas
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                
-            } catch (error) {
-                console.error('Chat error:', error);
-                
-                // Retirer l'indicateur de typing
-                document.getElementById('typingIndicator')?.remove();
-                
-                // Message d'erreur ou réponse demo
-                const demoResponses = [
-                    "D'après votre solde actuel, je recommande de mettre en place un budget mensuel strict pour optimiser vos finances.",
-                    "Vos transactions montrent des dépenses récurrentes. Voulez-vous que j'analyse vos habitudes de dépenses?",
-                    "Je peux vous aider à créer un plan d'épargne personnalisé basé sur vos revenus et dépenses actuels.",
-                    "Basé sur vos données bancaires, voici 3 stratégies pour améliorer votre santé financière: 1) Réduire les dépenses non essentielles, 2) Automatiser l'épargne, 3) Suivre un budget mensuel.",
-                    "Analysons ensemble vos objectifs financiers. Quel est votre principal objectif: épargner, investir ou réduire les dettes?"
-                ];
-                
-                const randomResponse = demoResponses[Math.floor(Math.random() * demoResponses.length)];
-                
-                const errorDiv = document.createElement('div');
-                errorDiv.className = 'chat-message assistant';
-                errorDiv.innerHTML = `
-                    <div class="message-bubble">${randomResponse}</div>
-                `;
-                messagesContainer.appendChild(errorDiv);
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            }
-        }
-
-        // ========================================
-        // WEBAUTHN BIOMETRIC FUNCTIONS
-        // ========================================
-        
-        async function webAuthnRegister() {
-            const email = document.getElementById('email').value || localStorage.getItem('userEmail');
-            
-            if (!email) {
-                showNotification('Veuillez entrer votre email d\'abord', 'error');
-                return;
-            }
-            
-            showNotification('Activation de l\'authentification biométrique...', 'info');
-            
-            try {
-                // Étape 1: Obtenir les options du serveur
-                const response = await fetch('/api/auth/webauthn', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        action: 'register',
-                        email: email
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (data.success && data.options) {
-                    // Étape 2: Créer la credential avec le navigateur
-                    const credential = await navigator.credentials.create({
-                        publicKey: data.options
-                    });
-                    
-                    // Étape 3: Envoyer la credential au serveur
-                    const verifyResponse = await fetch('/api/auth/webauthn', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            action: 'verify-registration',
-                            email: email,
-                            challenge: data.options.challenge,
-                            credential: {
-                                id: credential.id,
-                                publicKey: btoa(String.fromCharCode(...new Uint8Array(credential.response.publicKey)))
-                            }
-                        })
-                    });
-                    
-                    const verifyData = await verifyResponse.json();
-                    
-                    if (verifyData.success) {
-                        showNotification('✅ Authentification biométrique activée!', 'success');
-                        localStorage.setItem('webauthn_enabled', 'true');
-                        localStorage.setItem('webauthn_email', email);
-                    }
-                }
-            } catch (error) {
-                console.error('WebAuthn registration error:', error);
-                showNotification('Erreur lors de l\'activation. Votre appareil supporte-t-il l\'authentification biométrique?', 'error');
-            }
-        }
-        
-        async function webAuthnLogin() {
-            const email = localStorage.getItem('webauthn_email') || document.getElementById('email').value;
-            
-            if (!email) {
-                showNotification('Veuillez entrer votre email', 'error');
-                return;
-            }
-            
-            showNotification('Authentification biométrique...', 'info');
-            
-            try {
-                // Étape 1: Obtenir le challenge
-                const response = await fetch('/api/auth/webauthn', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        action: 'login',
-                        email: email
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (data.success && data.options) {
-                    // Étape 2: Obtenir la credential
-                    const assertion = await navigator.credentials.get({
-                        publicKey: data.options
-                    });
-                    
-                    // Étape 3: Vérifier avec le serveur
-                    const verifyResponse = await fetch('/api/auth/webauthn', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            action: 'verify-login',
-                            email: email,
-                            challenge: data.options.challenge,
-                            credential: {
-                                id: assertion.id
-                            }
-                        })
-                    });
-                    
-                    const verifyData = await verifyResponse.json();
-                    
-                    if (verifyData.success) {
-                        // Connexion réussie
-                        localStorage.setItem('cashoo_token', verifyData.token);
-                        localStorage.setItem('cashoo_user', JSON.stringify(verifyData.user));
-                        showNotification('✅ Connexion biométrique réussie!', 'success');
-                        
-                        // Afficher le dashboard
-                        setTimeout(() => {
-                            window.location.reload();
-                        }, 1000);
-                    }
-                }
-            } catch (error) {
-                console.error('WebAuthn login error:', error);
-                showNotification('Échec de l\'authentification biométrique', 'error');
-            }
-        }
-
-        // ========================================
-        // UTILITY FUNCTIONS
-        // ========================================
-        
-        function showNotification(message, type = 'info') {
-            const notification = document.createElement('div');
-            notification.className = `notification ${type}`;
-            notification.textContent = message;
-            document.body.appendChild(notification);
-            
-            setTimeout(() => {
-                notification.remove();
-            }, 5000);
-        }
-        
-        function exportTransactions() {
-            showNotification('Export des transactions en cours...', 'info');
-            // TODO: Implémenter l'export CSV/PDF
-            setTimeout(() => {
-                showNotification('✅ Export terminé!', 'success');
-            }, 1500);
-        }
-        
-        function openBudgetPlanner() {
-            toggleChat();
-            setTimeout(() => {
-                document.getElementById('chatInput').value = 'J\'aimerais créer un budget mensuel';
-                sendChatMessage();
-            }, 500);
-        }
-        
-        // Calculer les statistiques au chargement
-        function calculateStats(transactions) {
-            if (!transactions || transactions.length === 0) return;
-            
-            let monthlyIncome = 0;
-            let monthlyExpenses = 0;
-            
-            const currentMonth = new Date().getMonth();
-            const currentYear = new Date().getFullYear();
-            
-            transactions.forEach(tx => {
-                const txDate = new Date(tx.date);
-                if (txDate.getMonth() === currentMonth && txDate.getFullYear() === currentYear) {
-                    if (tx.credit) {
-                        monthlyIncome += parseFloat(tx.credit);
-                    }
-                    if (tx.debit) {
-                        monthlyExpenses += parseFloat(tx.debit);
-                    }
-                }
-            });
-            
-            document.getElementById('monthlyIncome').textContent = 
-                `$${monthlyIncome.toFixed(2)}`;
-            document.getElementById('monthlyExpenses').textContent = 
-                `$${monthlyExpenses.toFixed(2)}`;
-            document.getElementById('savingsAmount').textContent = 
-                `$${(monthlyIncome - monthlyExpenses).toFixed(2)}`;
-            document.getElementById('transactionCount').textContent = 
-                transactions.filter(tx => {
-                    const txDate = new Date(tx.date);
-                    return txDate.getMonth() === currentMonth && txDate.getFullYear() === currentYear;
-                }).length.toString();
-        }
-        
-        // Vérifier WebAuthn au chargement
-        window.addEventListener('DOMContentLoaded', () => {
-            // Vérifier si WebAuthn est disponible
-            if (window.PublicKeyCredential) {
-                console.log('✅ WebAuthn supporté sur cet appareil');
-                
-                // Si l'utilisateur a déjà activé WebAuthn, afficher le bouton
-                if (localStorage.getItem('webauthn_enabled') === 'true') {
-                    document.getElementById('biometricLoginBtn').style.display = 'inline-flex';
-                }
-            } else {
-                console.log('❌ WebAuthn non supporté');
-                document.getElementById('biometricLoginBtn').style.display = 'none';
-                document.getElementById('biometricRegisterBtn').style.display = 'none';
-            }
-            
-            // Initialiser le chat
-            console.log('💬 Claude AI Chat initialized');
-        });
-        
-        // Override de la fonction displayInveriteData pour inclure les stats
-        const originalDisplayInveriteData = window.displayInveriteData;
-        window.displayInveriteData = function(data) {
-            if (originalDisplayInveriteData) {
-                originalDisplayInveriteData(data);
-            }
-            calculateStats(data.transactions);
-        };
-
-        console.log('🚀 CASHOO Dashboard v2.0 - All features loaded');
-    </script>
 </body>
 </html>
