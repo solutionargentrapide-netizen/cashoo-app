@@ -1,31 +1,27 @@
-// CASHOO Banking Dashboard - JavaScript Corrigé
-// Version complète avec gestion d'authentification
-
+// CASHOO Banking Dashboard - JavaScript avec Flinks + Inverite
 // Configuration
 const API_URL = '/api';
 let authToken = localStorage.getItem('cashoo_token');
 let currentUser = null;
 let loginId = null;
+let currentProvider = null; // 'flinks' ou 'inverite'
 
 // Vérifier l'authentification au chargement
 window.onload = () => {
     console.log('App loaded. Token exists:', !!authToken);
-    
-    // Si on a un token, vérifier s'il est valide
     if (authToken) {
         verifyAuth();
-    } else {
-        // Pas de token, afficher le formulaire de login
-        showLoginForm();
     }
 };
 
+// ========================================
+// AUTHENTICATION
+// ========================================
+
 // Fonction de connexion
 async function login(event) {
-    if (event) event.preventDefault();
-    
+    event.preventDefault();
     const email = document.getElementById('email').value;
-    const password = document.getElementById('password') ? document.getElementById('password').value : '';
     const button = document.getElementById('loginBtn');
     const message = document.getElementById('loginMessage');
 
@@ -39,32 +35,27 @@ async function login(event) {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ email, password })
+            body: JSON.stringify({ email })
         });
 
         const data = await response.json();
 
         if (data.success) {
-            // Connexion réussie
             authToken = data.token;
             currentUser = data.user;
-            
-            // Sauvegarder le token
             localStorage.setItem('cashoo_token', authToken);
             localStorage.setItem('cashoo_user', JSON.stringify(currentUser));
             
             message.innerHTML = '<div class="success">Login successful!</div>';
-            
-            // Afficher le dashboard après un court délai
             setTimeout(() => {
                 showDashboard();
-            }, 500);
+            }, 1000);
         } else {
             throw new Error(data.error || 'Login failed');
         }
     } catch (error) {
-        console.error('Login error:', error);
         message.innerHTML = `<div class="error">${error.message}</div>`;
+    } finally {
         button.disabled = false;
         button.textContent = 'Access Dashboard';
     }
@@ -85,17 +76,15 @@ async function verifyAuth() {
         console.log('Verify response:', data);
 
         if (data.valid) {
-            // Token valide, afficher le dashboard
             currentUser = { 
                 id: data.userId, 
-                email: data.email 
+                email: data.email,
+                emailVerified: data.emailVerified 
             };
             localStorage.setItem('cashoo_user', JSON.stringify(currentUser));
             showDashboard();
             loadAccounts();
         } else {
-            // Token invalide, retour au login
-            console.log('Token invalid, showing login form');
             logout();
         }
     } catch (error) {
@@ -104,71 +93,40 @@ async function verifyAuth() {
     }
 }
 
-// Afficher le formulaire de login
-function showLoginForm() {
-    console.log('Showing login form');
-    const loginForm = document.getElementById('loginForm');
-    const dashboard = document.getElementById('dashboard');
+// Déconnexion
+function logout() {
+    localStorage.removeItem('cashoo_token');
+    localStorage.removeItem('cashoo_user');
+    authToken = null;
+    currentUser = null;
+    loginId = null;
     
-    if (loginForm) loginForm.style.display = 'block';
-    if (dashboard) {
-        dashboard.style.display = 'none';
-        dashboard.classList.remove('active');
-    }
+    document.getElementById('loginForm').style.display = 'block';
+    document.getElementById('dashboard').style.display = 'none';
+    document.getElementById('dashboard').classList.remove('active');
+    document.getElementById('email').value = '';
+    document.getElementById('loginMessage').innerHTML = '';
 }
 
 // Afficher le tableau de bord
 function showDashboard() {
     console.log('Showing dashboard');
-    const loginForm = document.getElementById('loginForm');
-    const dashboard = document.getElementById('dashboard');
-    
-    if (loginForm) loginForm.style.display = 'none';
-    if (dashboard) {
-        dashboard.style.display = 'block';
-        dashboard.classList.add('active');
-    }
-    
-    // Afficher l'email de l'utilisateur
-    if (currentUser && currentUser.email) {
-        const userEmailElement = document.getElementById('userEmail');
-        if (userEmailElement) {
-            userEmailElement.textContent = currentUser.email;
-        }
-    }
-    
-    // Charger les comptes
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    document.getElementById('dashboard').classList.add('active');
+    document.getElementById('userEmail').textContent = currentUser.email;
     loadAccounts();
 }
 
-// Déconnexion
-function logout() {
-    console.log('Logging out...');
-    
-    // Effacer les données locales
-    localStorage.removeItem('cashoo_token');
-    localStorage.removeItem('cashoo_user');
-    authToken = null;
-    currentUser = null;
-    
-    // Réinitialiser l'interface
-    showLoginForm();
-    
-    // Réinitialiser les champs
-    const emailField = document.getElementById('email');
-    if (emailField) emailField.value = '';
-    
-    const loginMessage = document.getElementById('loginMessage');
-    if (loginMessage) loginMessage.innerHTML = '';
-}
+// ========================================
+// FLINKS INTEGRATION
+// ========================================
 
 // Connecter un compte bancaire via Flinks
 async function connectBank() {
-    if (!authToken) {
-        alert('Please login first');
-        return;
-    }
-
+    currentProvider = 'flinks';
+    showStatus('Connecting to Flinks...', 'info');
+    
     try {
         const response = await fetch(`${API_URL}/flinks/connect`, {
             headers: {
@@ -180,53 +138,49 @@ async function connectBank() {
         
         if (data.url) {
             // Ouvrir l'iframe Flinks
-            document.getElementById('flinksFrame').src = data.url;
+            document.getElementById('iframeTitle').textContent = 'Flinks Bank Connection';
+            document.getElementById('universalFrame').src = data.url;
             document.getElementById('iframeContainer').classList.add('active');
             
             // Écouter le callback Flinks
             window.addEventListener('message', handleFlinksCallback);
+            showStatus('Please complete the connection in the popup', 'info');
+        } else {
+            throw new Error('Failed to get Flinks URL');
         }
     } catch (error) {
-        console.error('Failed to connect to banking service:', error);
-        alert('Failed to connect to banking service');
+        console.error('Flinks connection error:', error);
+        showStatus('Failed to connect to Flinks', 'error');
     }
 }
 
 // Gérer le callback Flinks
 function handleFlinksCallback(event) {
+    // Vérifier si le message vient de Flinks
     if (event.data && event.data.loginId) {
         loginId = event.data.loginId;
-        closeFlinks();
+        closeIframe();
         syncAccounts();
+        showStatus('Flinks connected successfully! Syncing accounts...', 'success');
+    } else if (event.data && event.data.error) {
+        showStatus('Flinks connection failed: ' + event.data.error, 'error');
+        closeIframe();
     }
-}
-
-// Fermer l'iframe Flinks
-function closeFlinks() {
-    document.getElementById('iframeContainer').classList.remove('active');
-    document.getElementById('flinksFrame').src = '';
-    window.removeEventListener('message', handleFlinksCallback);
 }
 
 // Synchroniser les comptes avec Flinks
 async function syncAccounts() {
-    if (!authToken) {
-        alert('Please login first');
-        return;
-    }
-
     if (!loginId) {
-        loginId = prompt('Enter your Flinks LoginId:');
+        // Pour les tests, demander le loginId
+        loginId = prompt('Enter your Flinks LoginId (or use "demo" for demo data):');
         if (!loginId) return;
     }
 
     const syncBtn = document.getElementById('syncBtn');
     const connectBtn = document.getElementById('connectBtn');
-    
-    if (syncBtn) {
-        syncBtn.disabled = true;
-        syncBtn.textContent = 'Syncing...';
-    }
+    syncBtn.disabled = true;
+    syncBtn.textContent = 'Syncing...';
+    showStatus('Syncing your accounts...', 'info');
 
     try {
         const response = await fetch(`${API_URL}/flinks/sync`, {
@@ -242,36 +196,185 @@ async function syncAccounts() {
 
         if (data.success) {
             displayAccountsData(data.data);
+            document.getElementById('lastSync').textContent = 
+                `Last synced: ${new Date(data.syncTime).toLocaleString()}`;
+            connectBtn.style.display = 'none';
+            syncBtn.style.display = 'inline-block';
             
-            const lastSyncElement = document.getElementById('lastSync');
-            if (lastSyncElement) {
-                lastSyncElement.textContent = `Last synced: ${new Date(data.syncTime).toLocaleString()}`;
-            }
-            
-            if (connectBtn) connectBtn.style.display = 'none';
-            if (syncBtn) {
-                syncBtn.style.display = 'inline-block';
-                syncBtn.disabled = false;
-                syncBtn.textContent = 'Refresh Data';
+            if (data.demo) {
+                showStatus('Demo data loaded (Flinks API unavailable)', 'warning');
+            } else {
+                showStatus('Accounts synced successfully!', 'success');
             }
         } else {
             throw new Error(data.error || 'Sync failed');
         }
     } catch (error) {
-        console.error('Sync failed:', error);
-        alert(`Sync failed: ${error.message}`);
+        console.error('Sync error:', error);
+        showStatus(`Sync failed: ${error.message}`, 'error');
+    } finally {
+        syncBtn.disabled = false;
+        syncBtn.textContent = 'Refresh Data';
+    }
+}
+
+// ========================================
+// INVERITE INTEGRATION
+// ========================================
+
+// Connecter via Inverite
+async function connectInverite() {
+    currentProvider = 'inverite';
+    showStatus('Connecting to Inverite...', 'info');
+    
+    try {
+        const response = await fetch(`${API_URL}/inverite/connect`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                firstname: currentUser.email.split('@')[0] || 'User',
+                lastname: 'CASHOO',
+                email: currentUser.email
+            })
+        });
+
+        const data = await response.json();
         
-        if (syncBtn) {
-            syncBtn.disabled = false;
-            syncBtn.textContent = 'Refresh Data';
+        if (data.iframeUrl) {
+            // Ouvrir l'iframe Inverite
+            document.getElementById('iframeTitle').textContent = 'Inverite Bank Verification';
+            document.getElementById('universalFrame').src = data.iframeUrl;
+            document.getElementById('iframeContainer').classList.add('active');
+            
+            // Écouter les messages Inverite
+            window.addEventListener('message', handleInveriteMessage);
+            showStatus('Please complete verification in the popup', 'info');
+        } else {
+            throw new Error('Failed to get Inverite URL');
         }
+    } catch (error) {
+        console.error('Inverite connection error:', error);
+        showStatus('Failed to connect to Inverite', 'error');
+    }
+}
+
+// Gérer les callbacks Inverite
+function handleInveriteMessage(event) {
+    // Vérifier si le message vient d'Inverite
+    if (event.origin.includes('inverite.com')) {
+        console.log('Inverite message received:', event.data);
+        
+        // Inverite peut envoyer différents formats
+        if (event.data === 'success' || 
+            event.data.verified === 1 || 
+            (event.data.type && event.data.type.includes('completed'))) {
+            
+            console.log('Inverite verification successful!');
+            closeIframe();
+            showStatus('Inverite verification completed successfully!', 'success');
+            
+            // Récupérer les données Inverite via webhook ou API
+            fetchInveriteData();
+        } else if (event.data === 'error' || event.data.verified === 0) {
+            showStatus('Inverite verification failed', 'error');
+            closeIframe();
+        }
+    }
+}
+
+// Récupérer les données Inverite
+async function fetchInveriteData() {
+    showStatus('Fetching verification data...', 'info');
+    
+    try {
+        const response = await fetch(`${API_URL}/inverite/fetch`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+
+        const data = await response.json();
+        
+        if (data.success && data.accounts) {
+            displayAccountsData({
+                accounts: data.accounts,
+                transactions: data.transactions || [],
+                summary: {
+                    totalBalance: data.accounts.reduce((sum, acc) => sum + (acc.balance || 0), 0)
+                }
+            });
+            
+            document.getElementById('lastSync').textContent = 
+                `Verified via Inverite: ${new Date().toLocaleString()}`;
+            showStatus('Verification data loaded successfully!', 'success');
+        } else {
+            showStatus('No verification data available yet', 'warning');
+        }
+    } catch (error) {
+        console.error('Failed to fetch Inverite data:', error);
+        showStatus('Failed to fetch verification data', 'error');
+    }
+}
+
+// ========================================
+// SHARED FUNCTIONS
+// ========================================
+
+// Fermer l'iframe (universel)
+function closeIframe() {
+    document.getElementById('iframeContainer').classList.remove('active');
+    document.getElementById('universalFrame').src = '';
+    
+    // Retirer tous les listeners
+    window.removeEventListener('message', handleFlinksCallback);
+    window.removeEventListener('message', handleInveriteMessage);
+}
+
+// Afficher un message de statut
+function showStatus(message, type = 'info') {
+    const statusDiv = document.getElementById('connectionStatus');
+    const statusMsg = document.getElementById('statusMessage');
+    
+    statusDiv.style.display = 'block';
+    statusMsg.textContent = message;
+    
+    // Appliquer le style selon le type
+    statusDiv.className = '';
+    switch(type) {
+        case 'success':
+            statusDiv.style.background = '#d4edda';
+            statusDiv.style.color = '#155724';
+            statusDiv.style.border = '1px solid #c3e6cb';
+            break;
+        case 'error':
+            statusDiv.style.background = '#f8d7da';
+            statusDiv.style.color = '#721c24';
+            statusDiv.style.border = '1px solid #f5c6cb';
+            break;
+        case 'warning':
+            statusDiv.style.background = '#fff3cd';
+            statusDiv.style.color = '#856404';
+            statusDiv.style.border = '1px solid #ffeaa7';
+            break;
+        default:
+            statusDiv.style.background = '#d1ecf1';
+            statusDiv.style.color = '#0c5460';
+            statusDiv.style.border = '1px solid #bee5eb';
+    }
+    
+    // Masquer après 5 secondes pour les messages de succès
+    if (type === 'success') {
+        setTimeout(() => {
+            statusDiv.style.display = 'none';
+        }, 5000);
     }
 }
 
 // Charger les comptes en cache
 async function loadAccounts() {
-    if (!authToken) return;
-
     try {
         const response = await fetch(`${API_URL}/flinks/accounts`, {
             headers: {
@@ -284,7 +387,7 @@ async function loadAccounts() {
         if (data.accounts && data.accounts.length > 0) {
             displayAccountsData({
                 accounts: data.accounts,
-                transactions: data.transactions,
+                transactions: data.transactions || [],
                 summary: {
                     totalBalance: data.accounts.reduce((sum, acc) => 
                         sum + (acc.balance || 0), 0)
@@ -292,15 +395,10 @@ async function loadAccounts() {
             });
             
             if (data.lastSync) {
-                const lastSyncElement = document.getElementById('lastSync');
-                if (lastSyncElement) {
-                    lastSyncElement.textContent = `Last synced: ${new Date(data.lastSync).toLocaleString()}`;
-                }
-                
-                const connectBtn = document.getElementById('connectBtn');
-                const syncBtn = document.getElementById('syncBtn');
-                if (connectBtn) connectBtn.style.display = 'none';
-                if (syncBtn) syncBtn.style.display = 'inline-block';
+                document.getElementById('lastSync').textContent = 
+                    `Last synced: ${new Date(data.lastSync).toLocaleString()}`;
+                document.getElementById('connectBtn').style.display = 'none';
+                document.getElementById('syncBtn').style.display = 'inline-block';
             }
         }
     } catch (error) {
@@ -308,66 +406,61 @@ async function loadAccounts() {
     }
 }
 
-// Afficher les données des comptes
+// Afficher les données des comptes (universel)
 function displayAccountsData(data) {
     // Mettre à jour le solde total
     const balance = data.summary?.totalBalance || 0;
-    const totalBalanceElement = document.getElementById('totalBalance');
-    if (totalBalanceElement) {
-        totalBalanceElement.textContent = `$${balance.toLocaleString('en-US', { 
-            minimumFractionDigits: 2, 
-            maximumFractionDigits: 2 
-        })}`;
-    }
+    document.getElementById('totalBalance').textContent = 
+        `$${balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
     // Afficher les comptes
     const accountsList = document.getElementById('accountsList');
-    if (accountsList) {
-        if (data.accounts && data.accounts.length > 0) {
-            accountsList.innerHTML = data.accounts.map(account => `
-                <div class="account-item">
-                    <h3>${account.name || account.id}</h3>
-                    <p style="color: #666; margin-bottom: 10px;">
-                        ${account.type} - ${account.institution || 'Bank'}
-                    </p>
-                    <p style="font-size: 1.5rem; font-weight: bold; color: #667eea;">
-                        $${(account.balance || 0).toLocaleString('en-US', { 
-                            minimumFractionDigits: 2, 
-                            maximumFractionDigits: 2 
-                        })}
-                    </p>
-                    <p style="color: #999; font-size: 0.9rem; margin-top: 5px;">
-                        ${account.currency || 'CAD'}
-                    </p>
-                </div>
-            `).join('');
-        } else {
-            accountsList.innerHTML = '<div class="loading">No accounts connected yet</div>';
-        }
+    if (data.accounts && data.accounts.length > 0) {
+        accountsList.innerHTML = data.accounts.map(account => `
+            <div class="account-item">
+                <h3>${account.name || account.id}</h3>
+                <p style="color: #666; margin-bottom: 10px;">
+                    ${account.type || 'Account'} - ${account.institution || account.bank || 'Bank'}
+                </p>
+                <p style="font-size: 1.5rem; font-weight: bold; color: #667eea;">
+                    $${(account.balance || 0).toLocaleString('en-US', { 
+                        minimumFractionDigits: 2, 
+                        maximumFractionDigits: 2 
+                    })}
+                </p>
+                <p style="color: #999; font-size: 0.9rem; margin-top: 5px;">
+                    ${account.currency || 'CAD'}
+                </p>
+                ${account.transit ? `<p style="color: #888; font-size: 0.8rem;">Transit: ${account.transit}</p>` : ''}
+                ${account.account ? `<p style="color: #888; font-size: 0.8rem;">Account: ${account.account}</p>` : ''}
+            </div>
+        `).join('');
+    } else {
+        accountsList.innerHTML = '<div class="loading">No accounts found</div>';
     }
 
     // Afficher les transactions
     const transactionsList = document.getElementById('transactionsList');
-    if (transactionsList) {
-        if (data.transactions && data.transactions.length > 0) {
-            transactionsList.innerHTML = data.transactions.slice(0, 50).map(tx => `
-                <div class="transaction-item">
-                    <div class="transaction-details">
-                        <div class="transaction-description">
-                            ${tx.description || 'Transaction'}
-                        </div>
-                        <div class="transaction-date">
-                            ${new Date(tx.date).toLocaleDateString()} - ${tx.category || 'Other'}
-                        </div>
+    if (data.transactions && data.transactions.length > 0) {
+        transactionsList.innerHTML = data.transactions.slice(0, 50).map(tx => `
+            <div class="transaction-item">
+                <div class="transaction-details">
+                    <div class="transaction-description">
+                        ${tx.description || tx.details || 'Transaction'}
                     </div>
-                    <div class="amount ${tx.amount >= 0 ? 'positive' : 'negative'}">
-                        ${tx.amount >= 0 ? '+' : ''}$${Math.abs(tx.amount).toFixed(2)}
+                    <div class="transaction-date">
+                        ${new Date(tx.date).toLocaleDateString()} 
+                        ${tx.category ? `- ${tx.category}` : ''}
                     </div>
                 </div>
-            `).join('');
-        } else {
-            transactionsList.innerHTML = '<div class="loading">No transactions available</div>';
-        }
+                <div class="amount ${(tx.amount || tx.credit || 0) >= 0 ? 'positive' : 'negative'}">
+                    ${tx.credit ? '+' : ''}${tx.debit ? '-' : ''}
+                    $${Math.abs(tx.amount || tx.credit || tx.debit || 0).toFixed(2)}
+                </div>
+            </div>
+        `).join('');
+    } else {
+        transactionsList.innerHTML = '<div class="loading">No transactions found</div>';
     }
 }
 
@@ -379,9 +472,5 @@ function handleError(error) {
     }
 }
 
-// Export des fonctions pour l'utilisation globale
-window.login = login;
-window.logout = logout;
-window.connectBank = connectBank;
-window.syncAccounts = syncAccounts;
-window.closeFlinks = closeFlinks;
+// Test de connexion au chargement
+console.log('CASHOO App initialized with Flinks + Inverite support');
