@@ -19,23 +19,21 @@
     {
       "source": "/test",
       "destination": "/test.html"
-    },
-    {
-      "source": "/forgot-password",
-      "destination": "/forgot-password.html"
-    },
-    {
-      "source": "/reset-password",
-      "destination": "/reset-password.html"
     }
   ],
   "cleanUrls": true,
   "trailingSlash": false,
   "functions": {
-    "api/auth/*.js": {
+    "api/auth.js": {
       "maxDuration": 10
     },
     "api/flinks/*.js": {
+      "maxDuration": 30
+    },
+    "api/inverite/*.js": {
+      "maxDuration": 30
+    },
+    "api/claude/*.js": {
       "maxDuration": 30
     }
   },
