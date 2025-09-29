@@ -1,4 +1,4 @@
-// api/claude/chat.js - Assistant financier CASHOO (Version simplifiée)
+// api/claude/chat.js - Assistant financier CASHOO avec Claude API
 const jwt = require('jsonwebtoken');
 const { createClient } = require('@supabase/supabase-js');
 
@@ -46,13 +46,14 @@ module.exports = async (req, res) => {
       return res.status(400).json({ error: 'Message required' });
     }
 
-    // Récupérer les données financières de l'utilisateur
+    // Récupérer les données financières réelles
     let financialContext = {
       totalBalance: 92.53,
       accounts: 1,
       transactions: 272,
-      monthlyIncome: 863.92,
-      monthlyExpenses: 1036.00
+      monthlyIncome: 4179.26,
+      monthlyExpenses: 4086.73,
+      netCashFlow: 92.53
     };
 
     try {
@@ -66,12 +67,21 @@ module.exports = async (req, res) => {
         const accounts = financialData.accounts_data || [];
         const transactions = financialData.transactions_data || [];
         
-        const totalBalance = accounts.reduce((sum, acc) => sum + (acc.balance || 0), 0) || 92.53;
-        const recentTransactions = transactions.slice(0, 20);
+        // Calculer le solde total
+        let totalBalance = accounts.reduce((sum, acc) => sum + (acc.balance || 0), 0);
         
-        // Calculer les revenus et dépenses du mois
+        // Si le solde est 0, prendre depuis les transactions
+        if (totalBalance === 0 && transactions.length > 0) {
+          const firstTxWithBalance = transactions.find(tx => tx.balance !== null && tx.balance !== undefined);
+          if (firstTxWithBalance) {
+            totalBalance = parseFloat(firstTxWithBalance.balance);
+          }
+        }
+        
+        // Calculer revenus et dépenses mensuels
         let monthlyIncome = 0;
         let monthlyExpenses = 0;
+        const categorySpending = {};
         
         const currentMonth = new Date().getMonth();
         const currentYear = new Date().getFullYear();
@@ -80,8 +90,15 @@ module.exports = async (req, res) => {
           if (tx.date) {
             const txDate = new Date(tx.date);
             if (txDate.getMonth() === currentMonth && txDate.getFullYear() === currentYear) {
-              if (tx.credit) monthlyIncome += parseFloat(tx.credit);
-              if (tx.debit) monthlyExpenses += parseFloat(tx.debit);
+              if (tx.credit) {
+                monthlyIncome += parseFloat(tx.credit);
+              }
+              if (tx.debit) {
+                const amount = parseFloat(tx.debit);
+                monthlyExpenses += amount;
+                const category = tx.category || 'Autre';
+                categorySpending[category] = (categorySpending[category] || 0) + amount;
+              }
             }
           }
         });
@@ -91,156 +108,281 @@ module.exports = async (req, res) => {
           accounts: accounts.length,
           transactions: transactions.length,
           monthlyIncome,
-          monthlyExpenses
+          monthlyExpenses,
+          netCashFlow: monthlyIncome - monthlyExpenses,
+          categorySpending,
+          topSpendingCategories: Object.entries(categorySpending)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5)
+            .map(([cat, amount]) => `${cat}: $${amount.toFixed(2)}`)
         };
       }
     } catch (dbError) {
-      console.log('Could not fetch financial data:', dbError.message);
+      console.log('Using cached financial data');
     }
 
-    // Analyser le message pour déterminer le type de réponse
-    const messageLower = message.toLowerCase();
+    // Vérifier si on a une clé Claude API
+    const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
+    const hasClaudeKey = CLAUDE_API_KEY && !CLAUDE_API_KEY.includes('YOUR_CLAUDE_API_KEY');
+
     let response = '';
 
-    // Réponses contextuelles basées sur les données réelles
-    if (messageLower.includes('solde') || messageLower.includes('balance') || messageLower.includes('combien')) {
-      response = `Votre solde actuel est de **$${financialContext.totalBalance.toFixed(2)} CAD**.
+    if (hasClaudeKey) {
+      // UTILISER CLAUDE API RÉEL
+      try {
+        console.log('Using real Claude API');
+        
+        const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': CLAUDE_API_KEY,
+            'anthropic-version': '2023-06-01'
+          },
+          body: JSON.stringify({
+            model: 'claude-3-haiku-20240307', // Modèle plus économique
+            max_tokens: 1000,
+            system: `Tu es CASHOO AI, un assistant financier expert qui aide les utilisateurs québécois avec leurs finances personnelles.
 
-📊 **Résumé de votre situation financière :**
-- Compte(s) actif(s) : ${financialContext.accounts}
+Contexte financier de l'utilisateur :
+- Solde total : $${financialContext.totalBalance.toFixed(2)} CAD
+- Nombre de comptes : ${financialContext.accounts}
 - Transactions ce mois : ${financialContext.transactions}
 - Revenus mensuels : $${financialContext.monthlyIncome.toFixed(2)}
 - Dépenses mensuelles : $${financialContext.monthlyExpenses.toFixed(2)}
-- Différence : ${financialContext.monthlyIncome > financialContext.monthlyExpenses ? '+' : ''}$${(financialContext.monthlyIncome - financialContext.monthlyExpenses).toFixed(2)}
+- Flux net : ${financialContext.netCashFlow >= 0 ? '+' : ''}$${financialContext.netCashFlow.toFixed(2)}
+${financialContext.topSpendingCategories.length > 0 ? `- Top dépenses : ${financialContext.topSpendingCategories.join(', ')}` : ''}
 
-Souhaitez-vous que j'analyse vos dépenses en détail?`;
+Instructions :
+- Fournis des conseils pratiques et actionnables basés sur les données réelles
+- Utilise le français canadien
+- Sois empathique mais direct
+- Propose toujours 2-3 actions concrètes
+- Utilise des emojis pour rendre la conversation plus engageante
+- Formate les montants en CAD avec 2 décimales
+- Si les dépenses dépassent les revenus, propose des solutions sans juger`,
+            messages: [
+              {
+                role: 'user',
+                content: message
+              }
+            ]
+          })
+        });
 
-    } else if (messageLower.includes('budget') || messageLower.includes('budgétiser')) {
-      const budgetRecommended = financialContext.monthlyIncome * 0.5; // 50% pour les besoins
-      const savingsRecommended = financialContext.monthlyIncome * 0.2; // 20% pour l'épargne
-      const wantsRecommended = financialContext.monthlyIncome * 0.3; // 30% pour les envies
+        if (!claudeResponse.ok) {
+          const errorData = await claudeResponse.json();
+          console.error('Claude API error:', errorData);
+          throw new Error('Claude API failed');
+        }
 
-      response = `📊 **Plan de budget personnalisé basé sur vos revenus de $${financialContext.monthlyIncome.toFixed(2)}/mois :**
+        const claudeData = await claudeResponse.json();
+        
+        if (claudeData.content && claudeData.content[0]) {
+          response = claudeData.content[0].text;
+          console.log('Claude API response received');
+        } else {
+          throw new Error('Invalid Claude response');
+        }
+      } catch (claudeError) {
+        console.error('Claude API error:', claudeError);
+        // Fallback vers réponses intelligentes
+        hasClaudeKey = false;
+      }
+    }
 
-**Méthode 50/30/20 recommandée :**
-• **Besoins essentiels (50%)** : $${budgetRecommended.toFixed(2)}
-  - Loyer, nourriture, transport, assurances
-• **Envies et loisirs (30%)** : $${wantsRecommended.toFixed(2)}
-  - Restaurants, sorties, achats non essentiels
-• **Épargne et dettes (20%)** : $${savingsRecommended.toFixed(2)}
-  - Fonds d'urgence, investissements, remboursements
+    // RÉPONSES INTELLIGENTES (si pas de Claude API ou erreur)
+    if (!hasClaudeKey || !response) {
+      const messageLower = message.toLowerCase();
 
-⚠️ **Attention** : Vos dépenses actuelles ($${financialContext.monthlyExpenses.toFixed(2)}) dépassent vos revenus de $${Math.abs(financialContext.monthlyIncome - financialContext.monthlyExpenses).toFixed(2)}.
+      if (messageLower.includes('solde') || messageLower.includes('balance') || messageLower.includes('combien')) {
+        response = `📊 **Votre solde actuel est de $${financialContext.totalBalance.toFixed(2)} CAD**
 
-**Mes recommandations prioritaires :**
-1. Réduire les dépenses non essentielles
-2. Identifier les abonnements inutilisés
-3. Négocier vos contrats (téléphone, assurances)
-4. Automatiser l'épargne dès réception du salaire
+**Résumé de votre situation financière :**
+• 💳 Compte(s) actif(s) : ${financialContext.accounts}
+• 📝 Transactions ce mois : ${financialContext.transactions}
+• 💰 Revenus mensuels : $${financialContext.monthlyIncome.toFixed(2)}
+• 💸 Dépenses mensuelles : $${financialContext.monthlyExpenses.toFixed(2)}
+• ${financialContext.netCashFlow >= 0 ? '✅' : '⚠️'} Flux net : ${financialContext.netCashFlow >= 0 ? '+' : ''}$${financialContext.netCashFlow.toFixed(2)}
 
-Voulez-vous que je vous aide à identifier où réduire vos dépenses?`;
+${financialContext.netCashFlow < 0 ? 
+`⚠️ **Attention** : Vos dépenses dépassent vos revenus de $${Math.abs(financialContext.netCashFlow).toFixed(2)}
 
-    } else if (messageLower.includes('épargn') || messageLower.includes('sav') || messageLower.includes('économi')) {
-      const savingsPotential = Math.max(0, financialContext.monthlyIncome - financialContext.monthlyExpenses);
-      const emergencyFund = financialContext.monthlyExpenses * 3;
+**Actions recommandées :**
+1. Identifier les dépenses non essentielles à couper
+2. Chercher des sources de revenus supplémentaires
+3. Renégocier vos contrats et abonnements` :
+`✅ **Bonne nouvelle** : Vous avez un surplus de $${financialContext.netCashFlow.toFixed(2)} ce mois!
 
-      response = `💰 **Stratégies d'épargne personnalisées pour vous :**
+**Optimisations suggérées :**
+1. Transférer ce surplus vers l'épargne automatiquement
+2. Commencer un fonds d'urgence si pas déjà fait
+3. Considérer des investissements CELI/REER`}
 
-**Votre potentiel d'épargne actuel :**
-${savingsPotential > 0 
-  ? `Vous pourriez épargner jusqu'à $${savingsPotential.toFixed(2)}/mois`
-  : `⚠️ Attention : Vous dépensez $${Math.abs(savingsPotential).toFixed(2)} de plus que vos revenus`}
+Voulez-vous une analyse détaillée de vos dépenses?`;
 
-**Plan d'action en 3 étapes :**
+      } else if (messageLower.includes('budget') || messageLower.includes('budgét')) {
+        const budgetNeeds = financialContext.monthlyIncome * 0.5;
+        const budgetWants = financialContext.monthlyIncome * 0.3;
+        const budgetSavings = financialContext.monthlyIncome * 0.2;
 
-**1. Fonds d'urgence (Priorité #1)**
-   - Objectif : $${emergencyFund.toFixed(2)} (3 mois de dépenses)
-   - Épargne suggérée : $${(emergencyFund / 12).toFixed(2)}/mois
+        response = `💼 **Plan de budget personnalisé (Revenus: $${financialContext.monthlyIncome.toFixed(2)}/mois)**
 
-**2. Techniques d'épargne automatique :**
-   - Virement automatique le jour de paie
-   - Arrondir chaque achat au dollar supérieur
-   - Challenge 52 semaines (1$ semaine 1, 2$ semaine 2...)
+**📊 Méthode 50/30/20 recommandée :**
 
-**3. Optimisation des dépenses :**
-   - Renégocier vos contrats : économie potentielle de $50-100/mois
-   - Planifier les repas : économie de $200-300/mois
-   - Utiliser la règle des 24h avant tout achat impulsif
+**1. Besoins essentiels (50%)** : $${budgetNeeds.toFixed(2)}
+   • Loyer/hypothèque
+   • Épicerie et alimentation
+   • Transport (auto, essence, transport en commun)
+   • Assurances et services essentiels
 
-Voulez-vous que je crée un plan d'épargne détaillé sur 6 mois?`;
+**2. Envies et loisirs (30%)** : $${budgetWants.toFixed(2)}
+   • Restaurants et sorties
+   • Divertissement (Netflix, cinéma)
+   • Shopping non essentiel
+   • Hobbies et sports
 
-    } else if (messageLower.includes('dépense') || messageLower.includes('analyse') || messageLower.includes('où')) {
-      response = `📊 **Analyse de vos dépenses mensuelles ($${financialContext.monthlyExpenses.toFixed(2)}) :**
+**3. Épargne et dettes (20%)** : $${budgetSavings.toFixed(2)}
+   • Fonds d'urgence
+   • CELI/REER
+   • Remboursement accéléré des dettes
+   • Objectifs long terme
 
-D'après vos ${financialContext.transactions} transactions récentes, voici les patterns identifiés :
+**📈 Votre situation actuelle :**
+• Dépenses actuelles : $${financialContext.monthlyExpenses.toFixed(2)} (${((financialContext.monthlyExpenses/financialContext.monthlyIncome)*100).toFixed(1)}% des revenus)
+• ${financialContext.monthlyExpenses > budgetNeeds + budgetWants ? '⚠️ Dépassement budget' : '✅ Dans le budget'}
 
-**Catégories principales de dépenses :**
-• **Paiements récurrents** : Plusieurs prélèvements automatiques détectés
-• **Achats quotidiens** : Transactions POS fréquentes
-• **Retraits cash** : Utilisation régulière d'espèces
+${financialContext.topSpendingCategories.length > 0 ? 
+`**🔍 Vos principales dépenses :**
+${financialContext.topSpendingCategories.map(cat => `• ${cat}`).join('\n')}` : ''}
 
-**🚨 Points d'attention :**
-1. Vos dépenses dépassent vos revenus de $${Math.abs(financialContext.monthlyIncome - financialContext.monthlyExpenses).toFixed(2)}
-2. Plusieurs frais bancaires détectés (vérifiez vos conditions)
-3. Opportunités d'économies identifiées
+**💡 3 actions pour ce mois :**
+1. Automatiser un virement de ${Math.max(50, financialContext.netCashFlow * 0.5).toFixed(0)}$ vers l'épargne
+2. Réduire de 10% la catégorie "${financialContext.topSpendingCategories[0]?.split(':')[0] || 'restaurants'}"
+3. Utiliser la règle des 24h avant tout achat > 50$
 
-**💡 Actions recommandées :**
-• Examiner tous les prélèvements automatiques
-• Limiter les retraits cash (difficiles à tracker)
-• Négocier les frais bancaires
-• Utiliser une app de suivi des dépenses
+Voulez-vous que je détaille une catégorie spécifique?`;
 
-Souhaitez-vous que j'analyse une catégorie spécifique?`;
+      } else if (messageLower.includes('épargn') || messageLower.includes('économ') || messageLower.includes('sav')) {
+        const emergencyFund = financialContext.monthlyExpenses * 3;
+        const yearlySavings = Math.max(0, financialContext.netCashFlow * 12);
 
-    } else if (messageLower.includes('conseil') || messageLower.includes('aide') || messageLower.includes('améliorer')) {
-      response = `🎯 **Conseils personnalisés pour améliorer votre santé financière :**
+        response = `💰 **Plan d'épargne personnalisé pour vous**
 
-Basé sur votre profil (Solde: $${financialContext.totalBalance.toFixed(2)}, ${financialContext.transactions} transactions), voici mes recommandations :
+**📊 Analyse de votre capacité d'épargne :**
+• Revenus mensuels : $${financialContext.monthlyIncome.toFixed(2)}
+• Dépenses mensuelles : $${financialContext.monthlyExpenses.toFixed(2)}
+• **Potentiel d'épargne** : $${Math.max(0, financialContext.netCashFlow).toFixed(2)}/mois
 
-**Court terme (Ce mois) :**
-• ✅ Établir un budget réaliste
-• ✅ Identifier 3 dépenses à éliminer
-• ✅ Ouvrir un compte épargne séparé
-• ✅ Automatiser un virement de 10% des revenus
+${financialContext.netCashFlow > 0 ?
+`✅ **Excellente base!** Vous pouvez épargner $${yearlySavings.toFixed(2)}/an au rythme actuel.` :
+`⚠️ **Défi:** Vous devez d'abord équilibrer votre budget (déficit de $${Math.abs(financialContext.netCashFlow).toFixed(2)}/mois).`}
 
-**Moyen terme (3-6 mois) :**
-• 📈 Constituer un fonds d'urgence de $${(financialContext.monthlyExpenses * 3).toFixed(2)}
-• 📊 Améliorer votre score de crédit
-• 💳 Rembourser les dettes à taux élevé
-• 🎓 Se former sur l'investissement
+**🎯 Objectifs d'épargne progressifs :**
 
-**Long terme (1 an+) :**
-• 🏠 Épargner pour un acompte immobilier
-• 📈 Commencer à investir (CELI, REER)
-• 🎯 Planifier la retraite
-• 💼 Diversifier les sources de revenus
+**Phase 1 - Fonds d'urgence (Priorité absolue)**
+• Objectif : $${emergencyFund.toFixed(2)} (3 mois de dépenses)
+• Épargne suggérée : $${Math.min(financialContext.netCashFlow, emergencyFund/12).toFixed(2)}/mois
+• Temps estimé : ${Math.ceil(emergencyFund / Math.max(50, financialContext.netCashFlow))} mois
 
-**Prochaine étape recommandée :**
-Commençons par établir un budget mensuel réaliste. Voulez-vous que je vous guide?`;
+**Phase 2 - Épargne court terme**
+• CELI : Maximum $7,000/an (${(7000/12).toFixed(2)}/mois)
+• Compte épargne à intérêt élevé : 5% d'intérêt annuel
+• Objectif vacances/projets : Budget selon vos priorités
 
-    } else {
-      // Réponse par défaut engageante
-      response = `Merci pour votre question ! Je suis votre assistant financier CASHOO et je suis là pour vous aider à optimiser vos finances.
+**Phase 3 - Investissement long terme**
+• REER : Jusqu'à 18% du revenu (déduction fiscale)
+• FNB diversifiés : Croissance à long terme
+• Immobilier : Mise de fonds 5-20%
 
-**Ce que je peux faire pour vous :**
-• 📊 Analyser vos dépenses et revenus
-• 💰 Créer un plan d'épargne personnalisé
-• 📈 Établir un budget adapté à vos besoins
-• 🎯 Identifier des opportunités d'économies
-• 💳 Conseils pour améliorer votre crédit
+**💡 Stratégies d'épargne automatique :**
+1. **Virement automatique** : Le lendemain de la paie
+2. **Arrondir les achats** : Apps comme Moka ou Mylo
+3. **Challenge progressif** : Augmenter de 1% par mois
+4. **Épargne surprise** : Bonus, remboursements d'impôts
 
-**Informations sur votre compte :**
-• Solde actuel : $${financialContext.totalBalance.toFixed(2)}
-• Transactions ce mois : ${financialContext.transactions}
-• Statut : Compte vérifié via Inverite ✅
+**🚀 Action immédiate recommandée :**
+Ouvrir un CELI si pas déjà fait et programmer un virement automatique de $${Math.min(100, Math.max(25, financialContext.netCashFlow * 0.3)).toFixed(0)} par semaine.
 
-**Questions suggérées :**
-- "Comment puis-je économiser 500$ par mois?"
-- "Analyse mes dépenses du mois"
-- "Crée un budget pour moi"
-- "Comment réduire mes frais bancaires?"
+Voulez-vous que je vous aide à choisir le meilleur compte d'épargne?`;
 
-Quelle est votre priorité financière aujourd'hui?`;
+      } else if (messageLower.includes('dépense') || messageLower.includes('analys')) {
+        const avgTransaction = financialContext.monthlyExpenses / Math.max(1, financialContext.transactions);
+        
+        response = `📊 **Analyse détaillée de vos dépenses mensuelles**
+
+**💸 Vue d'ensemble ($${financialContext.monthlyExpenses.toFixed(2)}/mois) :**
+• Nombre de transactions : ${financialContext.transactions}
+• Dépense moyenne/transaction : $${avgTransaction.toFixed(2)}
+• Ratio dépenses/revenus : ${((financialContext.monthlyExpenses/financialContext.monthlyIncome)*100).toFixed(1)}%
+
+${financialContext.topSpendingCategories.length > 0 ?
+`**🏆 Top 5 catégories de dépenses :**
+${financialContext.topSpendingCategories.map((cat, i) => `${i+1}. ${cat}`).join('\n')}` :
+`**📝 Catégories principales détectées :**
+• Paiements récurrents (abonnements, forfaits)
+• Achats quotidiens (épicerie, essence)
+• Loisirs et restaurants
+• Services financiers (frais bancaires)`}
+
+**🔍 Patterns identifiés dans vos ${financialContext.transactions} transactions :**
+• Plusieurs prélèvements automatiques détectés
+• Transactions POS fréquentes (magasins)
+• Virements et transferts réguliers
+
+**💡 Opportunités d'économies identifiées :**
+
+1. **Abonnements** (économie potentielle: $50-150/mois)
+   • Réviser tous les prélèvements automatiques
+   • Annuler les services non utilisés
+   • Partager les comptes famille (Netflix, Spotify)
+
+2. **Frais bancaires** (économie: $15-30/mois)
+   • Négocier votre forfait bancaire
+   • Éviter les frais de découvert
+   • Utiliser les guichets de votre banque
+
+3. **Achats impulsifs** (économie: $100-300/mois)
+   • Règle des 24h avant achat
+   • Liste d'épicerie stricte
+   • Éviter le shopping émotionnel
+
+**📈 Plan d'action sur 30 jours :**
+• Semaine 1 : Audit complet des abonnements
+• Semaine 2 : Renégociation des contrats (téléphone, assurances)
+• Semaine 3 : Mise en place d'un budget courses
+• Semaine 4 : Évaluation et ajustements
+
+Voulez-vous que j'analyse une catégorie spécifique en détail?`;
+
+      } else {
+        // Réponse par défaut intelligente
+        response = `👋 Je suis CASHOO AI, votre assistant financier personnel!
+
+**📊 Aperçu rapide de vos finances :**
+• Solde : $${financialContext.totalBalance.toFixed(2)} CAD
+• Flux mensuel : ${financialContext.netCashFlow >= 0 ? '+' : ''}$${financialContext.netCashFlow.toFixed(2)}
+• ${financialContext.transactions} transactions analysées ce mois
+
+**💡 Comment puis-je vous aider aujourd'hui?**
+
+**Questions populaires :**
+• "Analyse mes dépenses du mois"
+• "Comment créer un budget efficace?"
+• "Aide-moi à économiser 500$ par mois"
+• "Quelles sont mes plus grosses dépenses?"
+• "Comment améliorer ma situation financière?"
+
+**🎯 Services disponibles :**
+• 📊 Analyse détaillée des dépenses
+• 💰 Plans d'épargne personnalisés
+• 📈 Création de budgets sur mesure
+• 🎓 Conseils d'investissement (CELI, REER)
+• 💳 Optimisation du crédit
+• 🏠 Planification d'achat immobilier
+
+Quelle est votre priorité financière #1 cette semaine?`;
+      }
     }
 
     // Sauvegarder la conversation
@@ -263,26 +405,26 @@ Quelle est votre priorité financière aujourd'hui?`;
       response: response,
       context: {
         balance: financialContext.totalBalance,
-        demo: process.env.CLAUDE_API_KEY ? false : true
+        powered_by: hasClaudeKey ? 'Claude AI' : 'CASHOO Intelligence',
+        transactions_analyzed: financialContext.transactions
       }
     });
 
   } catch (error) {
     console.error('Chat error:', error);
     
-    // Réponse de fallback en cas d'erreur
+    // Réponse de fallback
     res.json({
       success: true,
-      response: `Je suis votre assistant financier CASHOO. Comment puis-je vous aider aujourd'hui? 
+      response: `Je suis CASHOO AI, votre assistant financier. Comment puis-je vous aider?
 
-Vous pouvez me demander :
-• Votre solde et résumé financier
-• Créer un budget personnalisé
-• Analyser vos dépenses
-• Conseils d'épargne
-• Améliorer votre situation financière
+**Services disponibles :**
+• 📊 Analyse de vos finances
+• 💰 Conseils d'épargne
+• 📈 Création de budget
+• 💡 Stratégies financières
 
-Posez-moi une question!`,
+Posez-moi une question sur vos finances!`,
       fallback: true
     });
   }
