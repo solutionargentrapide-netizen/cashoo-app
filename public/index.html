@@ -43,13 +43,26 @@
             <div class="card balance-card">
                 <h2>Total Balance</h2>
                 <div class="balance" id="totalBalance">$0.00</div>
-                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <div style="display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap;">
+                    <!-- Flinks Button -->
                     <button onclick="connectBank()" id="connectBtn">
-                        Connect Bank Account
+                        Connect Bank (Flinks)
                     </button>
+                    
+                    <!-- Inverite Button -->
+                    <button onclick="connectInverite()" id="inveriteBtn" style="background: #00a86b;">
+                        Verify Bank (Inverite)
+                    </button>
+                    
+                    <!-- Refresh Button -->
                     <button onclick="syncAccounts()" id="syncBtn" style="display:none;">
                         Refresh Data
                     </button>
+                </div>
+                
+                <!-- Status Messages -->
+                <div id="connectionStatus" style="margin-top: 15px; padding: 10px; display: none;">
+                    <span id="statusMessage"></span>
                 </div>
             </div>
 
@@ -70,11 +83,12 @@
             </div>
         </div>
 
-        <!-- Flinks iFrame Container -->
+        <!-- Universal iFrame Container (for both Flinks and Inverite) -->
         <div id="iframeContainer" class="iframe-container">
             <div class="iframe-wrapper">
-                <button class="close-iframe" onclick="closeFlinks()">×</button>
-                <iframe id="flinksFrame"></iframe>
+                <button class="close-iframe" onclick="closeIframe()">×</button>
+                <h3 id="iframeTitle" style="margin-bottom: 10px;">Bank Connection</h3>
+                <iframe id="universalFrame"></iframe>
             </div>
         </div>
     </div>
