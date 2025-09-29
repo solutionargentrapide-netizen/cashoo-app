@@ -1,307 +1,144 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CASHOO - Connexion Sécurisée</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+// api/auth/login.js - VERSION CORRIGÉE ET SIMPLIFIÉE
+const { createClient } = require('@supabase/supabase-js');
+const jwt = require('jsonwebtoken');
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
+module.exports = async (req, res) => {
+  // Configuration Supabase
+  const supabase = createClient(
+    process.env.SUPABASE_URL || 'https://tvfqfjfkmccyrpfkkfva.supabase.co',
+    process.env.SUPABASE_SERVICE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2ZnFmamZrbWNjeXJwZmtrZnZhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1ODczOTg3MywiZXhwIjoyMDc0MzE1ODczfQ.z7W1bIukn4ea3JmQwSjRu1oSIGjQX_2qQduGlUoXDZk'
+  );
 
-        .auth-container {
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-            width: 100%;
-            max-width: 450px;
-            padding: 40px;
-        }
+  // CORS pour tout accepter
+  res.setHeader('Access-Control-Allow-Credentials', true);
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With, X-HTTP-Method-Override, Content-Type, Accept, Authorization');
 
-        .logo {
-            text-align: center;
-            margin-bottom: 30px;
-        }
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
 
-        .logo h1 {
-            color: #667eea;
-            font-size: 2.5rem;
-            font-weight: 700;
-        }
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
 
-        .logo p {
-            color: #666;
-            margin-top: 10px;
-        }
+  try {
+    const { email, password } = req.body;
+    
+    // Validation basique
+    if (!email) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Email requis' 
+      });
+    }
 
-        .form-group {
-            margin-bottom: 20px;
-        }
+    const normalizedEmail = email.toLowerCase().trim();
+    console.log('[LOGIN] Tentative pour:', normalizedEmail);
 
-        label {
-            display: block;
-            margin-bottom: 8px;
-            color: #333;
-            font-weight: 500;
-        }
+    // 1. Vérifier si l'utilisateur existe
+    let { data: user, error: fetchError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', normalizedEmail)
+      .single();
 
-        input {
-            width: 100%;
-            padding: 12px 15px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 16px;
-            transition: border-color 0.3s;
-        }
+    // Si l'utilisateur n'existe pas, le créer automatiquement
+    if (!user || fetchError) {
+      console.log('[LOGIN] Utilisateur non trouvé, création automatique...');
+      
+      // Créer un nouvel utilisateur
+      const newUserId = 'user_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+      
+      const { data: newUser, error: createError } = await supabase
+        .from('users')
+        .insert({
+          id: newUserId,
+          email: normalizedEmail,
+          password_hash: null, // Pas de mot de passe requis
+          email_verified: true, // Auto-vérifié
+          created_at: new Date().toISOString(),
+          last_login: new Date().toISOString()
+        })
+        .select()
+        .single();
 
-        input:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-
-        button {
-            width: 100%;
-            padding: 14px;
-            background: #667eea;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-
-        button:hover:not(:disabled) {
-            background: #5a67d8;
-        }
-
-        button:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-
-        .alert {
-            padding: 12px 15px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-            font-size: 14px;
-        }
-
-        .alert-error {
-            background: #fee;
-            color: #c00;
-            border: 1px solid #fcc;
-        }
-
-        .alert-success {
-            background: #efe;
-            color: #060;
-            border: 1px solid #cfc;
-        }
-
-        .links {
-            margin-top: 20px;
-            text-align: center;
-        }
-
-        .links a {
-            color: #667eea;
-            text-decoration: none;
-            font-size: 14px;
-            margin: 0 10px;
-        }
-
-        .links a:hover {
-            text-decoration: underline;
-        }
-
-        .loading {
-            display: none;
-            text-align: center;
-            margin-top: 20px;
-        }
-
-        .loading.active {
-            display: block;
-        }
-
-        .spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #667eea;
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-    </style>
-</head>
-<body>
-    <div class="auth-container">
-        <div class="logo">
-            <h1>CASHOO</h1>
-            <p>Connexion sécurisée à votre tableau de bord</p>
-        </div>
-
-        <div id="alertContainer"></div>
-
-        <form id="loginForm">
-            <div class="form-group">
-                <label for="email">Adresse email</label>
-                <input 
-                    type="email" 
-                    id="email" 
-                    name="email" 
-                    required 
-                    placeholder="vous@exemple.com"
-                    autocomplete="email"
-                />
-            </div>
-
-            <div class="form-group">
-                <label for="password">Mot de passe</label>
-                <input 
-                    type="password" 
-                    id="password" 
-                    name="password" 
-                    placeholder="Votre mot de passe (optionnel)"
-                    autocomplete="current-password"
-                />
-            </div>
-
-            <button type="submit" id="submitBtn">Se connecter</button>
-
-            <div class="loading" id="loading">
-                <div class="spinner"></div>
-                <p style="margin-top: 10px;">Connexion en cours...</p>
-            </div>
-        </form>
-
-        <div class="links">
-            <a href="/register">Créer un compte</a>
-            <a href="/forgot-password">Mot de passe oublié ?</a>
-        </div>
-    </div>
-
-    <script>
-        // Fonction pour afficher les alertes
-        function showAlert(message, type = 'error') {
-            const alertContainer = document.getElementById('alertContainer');
-            alertContainer.innerHTML = `
-                <div class="alert alert-${type}">
-                    ${message}
-                </div>
-            `;
-            
-            if (type === 'success') {
-                setTimeout(() => {
-                    alertContainer.innerHTML = '';
-                }, 5000);
-            }
-        }
-
-        // Vérifier si déjà connecté
-        window.addEventListener('DOMContentLoaded', async () => {
-            const token = localStorage.getItem('cashoo_token') || sessionStorage.getItem('cashoo_token');
-            
-            if (token) {
-                try {
-                    const response = await fetch('/api/auth/verify', {
-                        headers: {
-                            'Authorization': `Bearer ${token}`
-                        }
-                    });
-
-                    const data = await response.json();
-
-                    if (data.valid) {
-                        // Déjà connecté, rediriger vers le dashboard
-                        window.location.href = '/index.html';
-                        return;
-                    }
-                } catch (error) {
-                    // Token invalide, supprimer
-                    localStorage.removeItem('cashoo_token');
-                    sessionStorage.removeItem('cashoo_token');
-                }
-            }
+      if (createError) {
+        console.error('[LOGIN] Erreur création:', createError);
+        return res.status(500).json({ 
+          success: false,
+          error: 'Erreur de création de compte',
+          details: createError.message
         });
+      }
 
-        // Gérer la soumission du formulaire
-        document.getElementById('loginForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const submitBtn = document.getElementById('submitBtn');
-            const loading = document.getElementById('loading');
+      user = newUser;
+      console.log('[LOGIN] Utilisateur créé avec succès:', user.id);
+    }
 
-            // Clear previous alerts
-            document.getElementById('alertContainer').innerHTML = '';
+    // 2. Mettre à jour la dernière connexion
+    await supabase
+      .from('users')
+      .update({ 
+        last_login: new Date().toISOString(),
+        failed_login_attempts: 0
+      })
+      .eq('id', user.id);
 
-            // Disable form
-            submitBtn.disabled = true;
-            loading.classList.add('active');
+    // 3. Créer le token JWT
+    const token = jwt.sign(
+      { 
+        userId: user.id, 
+        email: user.email,
+        emailVerified: true
+      },
+      process.env.JWT_SECRET || 'cashoo-jwt-secret-change-this-in-production-minimum-32-characters-long',
+      { expiresIn: '30d' } // Token valide 30 jours
+    );
 
-            try {
-                const response = await fetch('/api/auth/login', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        email,
-                        password: password || undefined // Ne pas envoyer de string vide
-                    })
-                });
+    // 4. Créer la session
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 30);
 
-                const data = await response.json();
+    // Nettoyer les anciennes sessions
+    await supabase
+      .from('sessions')
+      .delete()
+      .eq('user_id', user.id);
 
-                if (response.ok && data.success) {
-                    // Stocker le token
-                    localStorage.setItem('cashoo_token', data.token);
-                    localStorage.setItem('cashoo_user', JSON.stringify(data.user));
+    // Créer nouvelle session
+    await supabase
+      .from('sessions')
+      .insert({
+        user_id: user.id,
+        token: token,
+        expires_at: expiresAt.toISOString(),
+        created_at: new Date().toISOString()
+      });
 
-                    showAlert('Connexion réussie ! Redirection...', 'success');
-                    
-                    // Rediriger vers le dashboard (index.html)
-                    setTimeout(() => {
-                        window.location.href = '/index.html';
-                    }, 1000);
-                } else {
-                    // Gérer les erreurs
-                    if (data.remainingAttempts) {
-                        showAlert(`${data.error} (${data.remainingAttempts} tentatives restantes)`, 'error');
-                    } else {
-                        showAlert(data.error || 'Erreur de connexion', 'error');
-                    }
-                }
-            } catch (error) {
-                console.error('Login error:', error);
-                showAlert('Erreur de connexion. Veuillez réessayer.', 'error');
-            } finally {
-                submitBtn.disabled = false;
-                loading.classList.remove('active');
-            }
-        });
-    </script>
-</body>
-</html>
+    console.log('[LOGIN] Connexion réussie pour:', user.email);
+
+    // 5. Retourner le succès
+    return res.json({
+      success: true,
+      token: token,
+      user: { 
+        id: user.id, 
+        email: user.email,
+        emailVerified: true
+      },
+      message: user.created_at === user.last_login ? 'Compte créé et connecté!' : 'Connexion réussie!'
+    });
+
+  } catch (error) {
+    console.error('[LOGIN] Erreur générale:', error);
+    
+    // Toujours retourner une réponse valide
+    return res.status(200).json({ 
+      success: false,
+      error: 'Erreur de connexion. Veuillez réessayer.',
+      details: process.env.NODE_ENV !== 'production' ? error.message : undefined
+    });
+  }
+};
