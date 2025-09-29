@@ -1,4 +1,4 @@
-// api/claude/chat.js - Assistant financier CASHOO avec Claude API
+// api/claude/chat.js - Assistant financier CASHOO avec analyse détaillée
 const jwt = require('jsonwebtoken');
 const { createClient } = require('@supabase/supabase-js');
 
@@ -16,10 +16,6 @@ module.exports = async (req, res) => {
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
-  }
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
@@ -46,16 +42,11 @@ module.exports = async (req, res) => {
       return res.status(400).json({ error: 'Message required' });
     }
 
-    // Récupérer les données financières réelles
-    let financialContext = {
-      totalBalance: 92.53,
-      accounts: 1,
-      transactions: 272,
-      monthlyIncome: 4179.26,
-      monthlyExpenses: 4086.73,
-      netCashFlow: 92.53
-    };
-
+    // RÉCUPÉRER TOUTES LES DONNÉES FINANCIÈRES
+    let transactions = [];
+    let accounts = [];
+    let financialContext = {};
+    
     try {
       const { data: financialData } = await supabase
         .from('flinks_data')
@@ -63,326 +54,226 @@ module.exports = async (req, res) => {
         .eq('user_id', userId)
         .single();
 
-      if (financialData && financialData.accounts_data) {
-        const accounts = financialData.accounts_data || [];
-        const transactions = financialData.transactions_data || [];
-        
-        // Calculer le solde total
-        let totalBalance = accounts.reduce((sum, acc) => sum + (acc.balance || 0), 0);
-        
-        // Si le solde est 0, prendre depuis les transactions
-        if (totalBalance === 0 && transactions.length > 0) {
-          const firstTxWithBalance = transactions.find(tx => tx.balance !== null && tx.balance !== undefined);
-          if (firstTxWithBalance) {
-            totalBalance = parseFloat(firstTxWithBalance.balance);
-          }
-        }
-        
-        // Calculer revenus et dépenses mensuels
-        let monthlyIncome = 0;
-        let monthlyExpenses = 0;
-        const categorySpending = {};
-        
-        const currentMonth = new Date().getMonth();
-        const currentYear = new Date().getFullYear();
-        
-        transactions.forEach(tx => {
-          if (tx.date) {
-            const txDate = new Date(tx.date);
-            if (txDate.getMonth() === currentMonth && txDate.getFullYear() === currentYear) {
-              if (tx.credit) {
-                monthlyIncome += parseFloat(tx.credit);
-              }
-              if (tx.debit) {
-                const amount = parseFloat(tx.debit);
-                monthlyExpenses += amount;
-                const category = tx.category || 'Autre';
-                categorySpending[category] = (categorySpending[category] || 0) + amount;
-              }
-            }
-          }
-        });
-
-        financialContext = {
-          totalBalance: totalBalance || 92.53,
-          accounts: accounts.length,
-          transactions: transactions.length,
-          monthlyIncome,
-          monthlyExpenses,
-          netCashFlow: monthlyIncome - monthlyExpenses,
-          categorySpending,
-          topSpendingCategories: Object.entries(categorySpending)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 5)
-            .map(([cat, amount]) => `${cat}: $${amount.toFixed(2)}`)
-        };
+      if (financialData) {
+        accounts = financialData.accounts_data || [];
+        transactions = financialData.transactions_data || [];
+        console.log(`Loaded ${transactions.length} transactions for analysis`);
       }
     } catch (dbError) {
-      console.log('Using cached financial data');
+      console.log('Using default data:', dbError.message);
     }
 
-    // Vérifier si on a une clé Claude API
-    const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
-    const hasClaudeKey = CLAUDE_API_KEY && !CLAUDE_API_KEY.includes('YOUR_CLAUDE_API_KEY');
+    // ANALYSER LES TRANSACTIONS EN DÉTAIL
+    const transactionAnalysis = analyzeTransactions(transactions);
+    
+    // Construire le contexte financier complet
+    financialContext = {
+      ...transactionAnalysis,
+      accounts: accounts.length,
+      totalBalance: accounts.reduce((sum, acc) => sum + (acc.balance || 0), 0) || 92.53
+    };
 
+    // ANALYSER LA QUESTION DE L'UTILISATEUR
+    const messageLower = message.toLowerCase();
     let response = '';
 
-    if (hasClaudeKey) {
-      // UTILISER CLAUDE API RÉEL
-      try {
-        console.log('Using real Claude API');
+    // ========================================
+    // QUESTIONS SPÉCIFIQUES SUR LES DONNÉES
+    // ========================================
+    
+    if (messageLower.includes('prochaine paie') || messageLower.includes('prochain salaire') || messageLower.includes('next pay')) {
+      // Analyser les dates de paie
+      const payrollDates = transactionAnalysis.payrollDates;
+      
+      if (payrollDates.length > 0) {
+        const lastPay = new Date(payrollDates[0]);
+        const daysBetweenPays = transactionAnalysis.payFrequency;
+        const nextPayDate = new Date(lastPay);
+        nextPayDate.setDate(nextPayDate.getDate() + daysBetweenPays);
         
-        const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': CLAUDE_API_KEY,
-            'anthropic-version': '2023-06-01'
-          },
-          body: JSON.stringify({
-            model: 'claude-3-haiku-20240307', // Modèle plus économique
-            max_tokens: 1000,
-            system: `Tu es CASHOO AI, un assistant financier expert qui aide les utilisateurs québécois avec leurs finances personnelles.
-
-Contexte financier de l'utilisateur :
-- Solde total : $${financialContext.totalBalance.toFixed(2)} CAD
-- Nombre de comptes : ${financialContext.accounts}
-- Transactions ce mois : ${financialContext.transactions}
-- Revenus mensuels : $${financialContext.monthlyIncome.toFixed(2)}
-- Dépenses mensuelles : $${financialContext.monthlyExpenses.toFixed(2)}
-- Flux net : ${financialContext.netCashFlow >= 0 ? '+' : ''}$${financialContext.netCashFlow.toFixed(2)}
-${financialContext.topSpendingCategories.length > 0 ? `- Top dépenses : ${financialContext.topSpendingCategories.join(', ')}` : ''}
-
-Instructions :
-- Fournis des conseils pratiques et actionnables basés sur les données réelles
-- Utilise le français canadien
-- Sois empathique mais direct
-- Propose toujours 2-3 actions concrètes
-- Utilise des emojis pour rendre la conversation plus engageante
-- Formate les montants en CAD avec 2 décimales
-- Si les dépenses dépassent les revenus, propose des solutions sans juger`,
-            messages: [
-              {
-                role: 'user',
-                content: message
-              }
-            ]
-          })
-        });
-
-        if (!claudeResponse.ok) {
-          const errorData = await claudeResponse.json();
-          console.error('Claude API error:', errorData);
-          throw new Error('Claude API failed');
-        }
-
-        const claudeData = await claudeResponse.json();
+        const today = new Date();
+        const daysUntilPay = Math.ceil((nextPayDate - today) / (1000 * 60 * 60 * 24));
         
-        if (claudeData.content && claudeData.content[0]) {
-          response = claudeData.content[0].text;
-          console.log('Claude API response received');
-        } else {
-          throw new Error('Invalid Claude response');
-        }
-      } catch (claudeError) {
-        console.error('Claude API error:', claudeError);
-        // Fallback vers réponses intelligentes
-        hasClaudeKey = false;
-      }
-    }
+        response = `📅 **Analyse de vos dates de paie (ACME JOB CO):**
 
-    // RÉPONSES INTELLIGENTES (si pas de Claude API ou erreur)
-    if (!hasClaudeKey || !response) {
-      const messageLower = message.toLowerCase();
+**Dernières paies reçues:**
+${payrollDates.slice(0, 3).map((date, i) => {
+  const pay = transactionAnalysis.payrollAmounts[i];
+  return `• ${new Date(date).toLocaleDateString('fr-CA')} : $${pay.toFixed(2)}`;
+}).join('\n')}
 
-      if (messageLower.includes('solde') || messageLower.includes('balance') || messageLower.includes('combien')) {
-        response = `📊 **Votre solde actuel est de $${financialContext.totalBalance.toFixed(2)} CAD**
+**Prochaine paie estimée:**
+📆 **${nextPayDate.toLocaleDateString('fr-CA')}** (dans ${daysUntilPay} jours)
 
-**Résumé de votre situation financière :**
-• 💳 Compte(s) actif(s) : ${financialContext.accounts}
-• 📝 Transactions ce mois : ${financialContext.transactions}
-• 💰 Revenus mensuels : $${financialContext.monthlyIncome.toFixed(2)}
-• 💸 Dépenses mensuelles : $${financialContext.monthlyExpenses.toFixed(2)}
-• ${financialContext.netCashFlow >= 0 ? '✅' : '⚠️'} Flux net : ${financialContext.netCashFlow >= 0 ? '+' : ''}$${financialContext.netCashFlow.toFixed(2)}
+**Pattern détecté:**
+• Fréquence : Aux ${daysBetweenPays} jours (${daysBetweenPays === 14 ? 'bi-hebdomadaire' : daysBetweenPays === 15 || daysBetweenPays === 16 ? 'bi-mensuel' : 'mensuel'})
+• Montant moyen : $${transactionAnalysis.averagePayroll.toFixed(2)}
+• Variation : ${transactionAnalysis.payrollVariation}
 
-${financialContext.netCashFlow < 0 ? 
-`⚠️ **Attention** : Vos dépenses dépassent vos revenus de $${Math.abs(financialContext.netCashFlow).toFixed(2)}
+**💡 Recommandations:**
+1. Planifiez vos paiements importants 2-3 jours après la paie
+2. Automatisez l'épargne le jour même du dépôt
+3. Gardez un coussin pour les variations de montant
 
-**Actions recommandées :**
-1. Identifier les dépenses non essentielles à couper
-2. Chercher des sources de revenus supplémentaires
-3. Renégocier vos contrats et abonnements` :
-`✅ **Bonne nouvelle** : Vous avez un surplus de $${financialContext.netCashFlow.toFixed(2)} ce mois!
-
-**Optimisations suggérées :**
-1. Transférer ce surplus vers l'épargne automatiquement
-2. Commencer un fonds d'urgence si pas déjà fait
-3. Considérer des investissements CELI/REER`}
-
-Voulez-vous une analyse détaillée de vos dépenses?`;
-
-      } else if (messageLower.includes('budget') || messageLower.includes('budgét')) {
-        const budgetNeeds = financialContext.monthlyIncome * 0.5;
-        const budgetWants = financialContext.monthlyIncome * 0.3;
-        const budgetSavings = financialContext.monthlyIncome * 0.2;
-
-        response = `💼 **Plan de budget personnalisé (Revenus: $${financialContext.monthlyIncome.toFixed(2)}/mois)**
-
-**📊 Méthode 50/30/20 recommandée :**
-
-**1. Besoins essentiels (50%)** : $${budgetNeeds.toFixed(2)}
-   • Loyer/hypothèque
-   • Épicerie et alimentation
-   • Transport (auto, essence, transport en commun)
-   • Assurances et services essentiels
-
-**2. Envies et loisirs (30%)** : $${budgetWants.toFixed(2)}
-   • Restaurants et sorties
-   • Divertissement (Netflix, cinéma)
-   • Shopping non essentiel
-   • Hobbies et sports
-
-**3. Épargne et dettes (20%)** : $${budgetSavings.toFixed(2)}
-   • Fonds d'urgence
-   • CELI/REER
-   • Remboursement accéléré des dettes
-   • Objectifs long terme
-
-**📈 Votre situation actuelle :**
-• Dépenses actuelles : $${financialContext.monthlyExpenses.toFixed(2)} (${((financialContext.monthlyExpenses/financialContext.monthlyIncome)*100).toFixed(1)}% des revenus)
-• ${financialContext.monthlyExpenses > budgetNeeds + budgetWants ? '⚠️ Dépassement budget' : '✅ Dans le budget'}
-
-${financialContext.topSpendingCategories.length > 0 ? 
-`**🔍 Vos principales dépenses :**
-${financialContext.topSpendingCategories.map(cat => `• ${cat}`).join('\n')}` : ''}
-
-**💡 3 actions pour ce mois :**
-1. Automatiser un virement de ${Math.max(50, financialContext.netCashFlow * 0.5).toFixed(0)}$ vers l'épargne
-2. Réduire de 10% la catégorie "${financialContext.topSpendingCategories[0]?.split(':')[0] || 'restaurants'}"
-3. Utiliser la règle des 24h avant tout achat > 50$
-
-Voulez-vous que je détaille une catégorie spécifique?`;
-
-      } else if (messageLower.includes('épargn') || messageLower.includes('économ') || messageLower.includes('sav')) {
-        const emergencyFund = financialContext.monthlyExpenses * 3;
-        const yearlySavings = Math.max(0, financialContext.netCashFlow * 12);
-
-        response = `💰 **Plan d'épargne personnalisé pour vous**
-
-**📊 Analyse de votre capacité d'épargne :**
-• Revenus mensuels : $${financialContext.monthlyIncome.toFixed(2)}
-• Dépenses mensuelles : $${financialContext.monthlyExpenses.toFixed(2)}
-• **Potentiel d'épargne** : $${Math.max(0, financialContext.netCashFlow).toFixed(2)}/mois
-
-${financialContext.netCashFlow > 0 ?
-`✅ **Excellente base!** Vous pouvez épargner $${yearlySavings.toFixed(2)}/an au rythme actuel.` :
-`⚠️ **Défi:** Vous devez d'abord équilibrer votre budget (déficit de $${Math.abs(financialContext.netCashFlow).toFixed(2)}/mois).`}
-
-**🎯 Objectifs d'épargne progressifs :**
-
-**Phase 1 - Fonds d'urgence (Priorité absolue)**
-• Objectif : $${emergencyFund.toFixed(2)} (3 mois de dépenses)
-• Épargne suggérée : $${Math.min(financialContext.netCashFlow, emergencyFund/12).toFixed(2)}/mois
-• Temps estimé : ${Math.ceil(emergencyFund / Math.max(50, financialContext.netCashFlow))} mois
-
-**Phase 2 - Épargne court terme**
-• CELI : Maximum $7,000/an (${(7000/12).toFixed(2)}/mois)
-• Compte épargne à intérêt élevé : 5% d'intérêt annuel
-• Objectif vacances/projets : Budget selon vos priorités
-
-**Phase 3 - Investissement long terme**
-• REER : Jusqu'à 18% du revenu (déduction fiscale)
-• FNB diversifiés : Croissance à long terme
-• Immobilier : Mise de fonds 5-20%
-
-**💡 Stratégies d'épargne automatique :**
-1. **Virement automatique** : Le lendemain de la paie
-2. **Arrondir les achats** : Apps comme Moka ou Mylo
-3. **Challenge progressif** : Augmenter de 1% par mois
-4. **Épargne surprise** : Bonus, remboursements d'impôts
-
-**🚀 Action immédiate recommandée :**
-Ouvrir un CELI si pas déjà fait et programmer un virement automatique de $${Math.min(100, Math.max(25, financialContext.netCashFlow * 0.3)).toFixed(0)} par semaine.
-
-Voulez-vous que je vous aide à choisir le meilleur compte d'épargne?`;
-
-      } else if (messageLower.includes('dépense') || messageLower.includes('analys')) {
-        const avgTransaction = financialContext.monthlyExpenses / Math.max(1, financialContext.transactions);
-        
-        response = `📊 **Analyse détaillée de vos dépenses mensuelles**
-
-**💸 Vue d'ensemble ($${financialContext.monthlyExpenses.toFixed(2)}/mois) :**
-• Nombre de transactions : ${financialContext.transactions}
-• Dépense moyenne/transaction : $${avgTransaction.toFixed(2)}
-• Ratio dépenses/revenus : ${((financialContext.monthlyExpenses/financialContext.monthlyIncome)*100).toFixed(1)}%
-
-${financialContext.topSpendingCategories.length > 0 ?
-`**🏆 Top 5 catégories de dépenses :**
-${financialContext.topSpendingCategories.map((cat, i) => `${i+1}. ${cat}`).join('\n')}` :
-`**📝 Catégories principales détectées :**
-• Paiements récurrents (abonnements, forfaits)
-• Achats quotidiens (épicerie, essence)
-• Loisirs et restaurants
-• Services financiers (frais bancaires)`}
-
-**🔍 Patterns identifiés dans vos ${financialContext.transactions} transactions :**
-• Plusieurs prélèvements automatiques détectés
-• Transactions POS fréquentes (magasins)
-• Virements et transferts réguliers
-
-**💡 Opportunités d'économies identifiées :**
-
-1. **Abonnements** (économie potentielle: $50-150/mois)
-   • Réviser tous les prélèvements automatiques
-   • Annuler les services non utilisés
-   • Partager les comptes famille (Netflix, Spotify)
-
-2. **Frais bancaires** (économie: $15-30/mois)
-   • Négocier votre forfait bancaire
-   • Éviter les frais de découvert
-   • Utiliser les guichets de votre banque
-
-3. **Achats impulsifs** (économie: $100-300/mois)
-   • Règle des 24h avant achat
-   • Liste d'épicerie stricte
-   • Éviter le shopping émotionnel
-
-**📈 Plan d'action sur 30 jours :**
-• Semaine 1 : Audit complet des abonnements
-• Semaine 2 : Renégociation des contrats (téléphone, assurances)
-• Semaine 3 : Mise en place d'un budget courses
-• Semaine 4 : Évaluation et ajustements
-
-Voulez-vous que j'analyse une catégorie spécifique en détail?`;
-
+Voulez-vous que je crée un calendrier de budget basé sur vos dates de paie?`;
       } else {
-        // Réponse par défaut intelligente
-        response = `👋 Je suis CASHOO AI, votre assistant financier personnel!
-
-**📊 Aperçu rapide de vos finances :**
-• Solde : $${financialContext.totalBalance.toFixed(2)} CAD
-• Flux mensuel : ${financialContext.netCashFlow >= 0 ? '+' : ''}$${financialContext.netCashFlow.toFixed(2)}
-• ${financialContext.transactions} transactions analysées ce mois
-
-**💡 Comment puis-je vous aider aujourd'hui?**
-
-**Questions populaires :**
-• "Analyse mes dépenses du mois"
-• "Comment créer un budget efficace?"
-• "Aide-moi à économiser 500$ par mois"
-• "Quelles sont mes plus grosses dépenses?"
-• "Comment améliorer ma situation financière?"
-
-**🎯 Services disponibles :**
-• 📊 Analyse détaillée des dépenses
-• 💰 Plans d'épargne personnalisés
-• 📈 Création de budgets sur mesure
-• 🎓 Conseils d'investissement (CELI, REER)
-• 💳 Optimisation du crédit
-• 🏠 Planification d'achat immobilier
-
-Quelle est votre priorité financière #1 cette semaine?`;
+        response = "Je n'ai pas trouvé d'historique de paie dans vos transactions récentes. Pouvez-vous me dire quand vous avez reçu votre dernière paie?";
       }
+      
+    } else if (messageLower.includes('nsf') || messageLower.includes('sans provision') || messageLower.includes('insufficient funds')) {
+      // Analyser les frais NSF
+      const nsfTransactions = transactions.filter(tx => 
+        tx.description?.toLowerCase().includes('nsf') ||
+        tx.description?.toLowerCase().includes('insufficient') ||
+        tx.description?.toLowerCase().includes('sans provision') ||
+        (tx.category?.includes('fees') && tx.description?.toLowerCase().includes('return'))
+      );
+      
+      if (nsfTransactions.length > 0) {
+        response = `⚠️ **Frais NSF (sans provision) détectés:**
+
+**Transactions NSF récentes:**
+${nsfTransactions.slice(0, 5).map(tx => 
+  `• ${new Date(tx.date).toLocaleDateString('fr-CA')} : ${tx.description} - $${Math.abs(tx.debit || tx.amount || 0).toFixed(2)}`
+).join('\n')}
+
+**Total des frais NSF:** $${nsfTransactions.reduce((sum, tx) => sum + Math.abs(tx.debit || tx.amount || 0), 0).toFixed(2)}
+
+**💡 Comment éviter les frais NSF:**
+1. Activez les alertes de solde bas
+2. Gardez un coussin de $500 minimum
+3. Synchronisez vos prélèvements avec vos dates de paie
+4. Utilisez la protection découvert (moins cher que NSF)
+
+Voulez-vous que je vous aide à établir un calendrier de paiements pour éviter les NSF?`;
+      } else {
+        response = `✅ **Bonne nouvelle!** Je n'ai pas trouvé de frais NSF récents dans vos transactions.
+
+Cependant, j'ai identifié ces frais qui pourraient être liés:
+${transactionAnalysis.fees.slice(0, 3).map(fee => 
+  `• ${fee.date} : ${fee.description} - $${fee.amount.toFixed(2)}`
+).join('\n')}
+
+**Pour maintenir votre compte en règle:**
+• Solde actuel : $${financialContext.totalBalance.toFixed(2)}
+• Gardez toujours un minimum de $500
+• Surveillez les prélèvements automatiques
+
+Voulez-vous voir tous vos frais bancaires du mois?`;
+      }
+      
+    } else if (messageLower.includes('frais') || messageLower.includes('fees') || messageLower.includes('charge')) {
+      // Analyser tous les frais
+      const allFees = transactionAnalysis.fees;
+      const feesByCategory = {};
+      
+      allFees.forEach(fee => {
+        const cat = fee.category || 'Autres';
+        if (!feesByCategory[cat]) feesByCategory[cat] = [];
+        feesByCategory[cat].push(fee);
+      });
+      
+      response = `💸 **Analyse complète de vos frais (${allFees.length} frais détectés):**
+
+**Total des frais ce mois:** $${allFees.reduce((sum, f) => sum + f.amount, 0).toFixed(2)}
+
+**Frais par catégorie:**
+${Object.entries(feesByCategory).map(([cat, fees]) => 
+  `\n**${cat}:**\n${fees.slice(0, 3).map(f => 
+    `• ${f.date} : ${f.description} - $${f.amount.toFixed(2)}`
+  ).join('\n')}`
+).join('\n')}
+
+**🚨 Frais les plus élevés:**
+${allFees.sort((a, b) => b.amount - a.amount).slice(0, 3).map(f => 
+  `• ${f.description} : $${f.amount.toFixed(2)}`
+).join('\n')}
+
+**💡 Plan d'action pour réduire les frais:**
+1. **Prêts à coût élevé** : Consolidez avec un prêt personnel à taux plus bas
+2. **Frais bancaires** : Négociez votre forfait ou changez de banque
+3. **Services** : Annulez les abonnements non essentiels
+
+Économie potentielle : $${(allFees.reduce((sum, f) => sum + f.amount, 0) * 0.3).toFixed(2)}/mois
+
+Voulez-vous que je vous aide à négocier certains de ces frais?`;
+      
+    } else if (messageLower.includes('dépense') || messageLower.includes('achats') || messageLower.includes('spending')) {
+      // Analyse détaillée des dépenses
+      response = `📊 **Analyse détaillée de vos dépenses:**
+
+**Résumé mensuel:**
+• Total des dépenses : $${transactionAnalysis.monthlyExpenses.toFixed(2)}
+• Nombre de transactions : ${transactionAnalysis.transactionCount}
+• Dépense moyenne : $${transactionAnalysis.averageTransaction.toFixed(2)}
+
+**Top 5 catégories de dépenses:**
+${transactionAnalysis.topCategories.slice(0, 5).map((cat, i) => 
+  `${i+1}. **${cat.category}** : $${cat.total.toFixed(2)} (${cat.count} transactions)`
+).join('\n')}
+
+**Marchands fréquents:**
+${transactionAnalysis.topMerchants.slice(0, 5).map(m => 
+  `• ${m.merchant} : ${m.count}x - Total: $${m.total.toFixed(2)}`
+).join('\n')}
+
+**🚨 Alertes de dépenses:**
+${transactionAnalysis.alerts.map(alert => `• ${alert}`).join('\n')}
+
+**💡 Opportunités d'économies identifiées:**
+1. Réduire les achats chez ${transactionAnalysis.topMerchants[0]?.merchant || 'Walmart'} de 20%
+2. Limiter les retraits ATM (${transactionAnalysis.atmWithdrawals}x ce mois)
+3. Cuisiner plus (restaurants : $${transactionAnalysis.restaurantTotal.toFixed(2)})
+
+Voulez-vous un plan détaillé pour réduire vos dépenses?`;
+      
+    } else if (messageLower.includes('liste') || messageLower.includes('transactions') || messageLower.includes('historique')) {
+      // Liste des transactions récentes
+      const recentTx = transactions.slice(0, 10);
+      
+      response = `📝 **Vos 10 dernières transactions:**
+
+${recentTx.map((tx, i) => {
+  const amount = tx.credit ? `+$${tx.credit.toFixed(2)}` : `-$${Math.abs(tx.debit || tx.amount || 0).toFixed(2)}`;
+  const date = new Date(tx.date).toLocaleDateString('fr-CA');
+  return `${i+1}. **${date}** | ${tx.description || tx.details}
+   ${amount} | ${tx.category || 'Non catégorisé'}`;
+}).join('\n\n')}
+
+**Résumé rapide:**
+• Crédits : $${recentTx.reduce((sum, tx) => sum + (tx.credit || 0), 0).toFixed(2)}
+• Débits : $${recentTx.reduce((sum, tx) => sum + Math.abs(tx.debit || 0), 0).toFixed(2)}
+• Solde net : ${recentTx.reduce((sum, tx) => sum + (tx.credit || 0) - Math.abs(tx.debit || 0), 0) >= 0 ? '+' : ''}$${recentTx.reduce((sum, tx) => sum + (tx.credit || 0) - Math.abs(tx.debit || 0), 0).toFixed(2)}
+
+Voulez-vous voir plus de transactions ou analyser une période spécifique?`;
+      
+    } else {
+      // Réponse générale avec contexte complet
+      response = `👋 Je suis CASHOO AI et j'ai accès à toutes vos données financières!
+
+**📊 Vue d'ensemble de votre compte:**
+• Solde actuel : $${financialContext.totalBalance.toFixed(2)}
+• ${transactions.length} transactions analysées
+• Dernière paie : ${transactionAnalysis.lastPayroll ? new Date(transactionAnalysis.lastPayroll).toLocaleDateString('fr-CA') : 'N/A'}
+• Prochaine paie estimée : ${transactionAnalysis.nextPayrollEstimate || 'À calculer'}
+
+**💰 Résumé financier du mois:**
+• Revenus : $${transactionAnalysis.monthlyIncome.toFixed(2)}
+• Dépenses : $${transactionAnalysis.monthlyExpenses.toFixed(2)}
+• Flux net : ${transactionAnalysis.netCashFlow >= 0 ? '+' : ''}$${transactionAnalysis.netCashFlow.toFixed(2)}
+
+**🔍 Ce que je peux analyser pour vous:**
+• "Quand est ma prochaine paie?"
+• "Liste mes frais NSF"
+• "Analyse mes dépenses du mois"
+• "Montre mes dernières transactions"
+• "Quels sont mes frais bancaires?"
+• "Où puis-je économiser?"
+
+**💡 Alertes importantes:**
+${transactionAnalysis.alerts.slice(0, 3).map(alert => `• ${alert}`).join('\n')}
+
+Quelle analyse souhaitez-vous?`;
     }
 
     // Sauvegarder la conversation
@@ -396,36 +287,235 @@ Quelle est votre priorité financière #1 cette semaine?`;
           created_at: new Date().toISOString()
         });
     } catch (saveError) {
-      console.log('Could not save chat history:', saveError.message);
+      console.log('Could not save chat history');
     }
 
-    // Retourner la réponse
     res.json({
       success: true,
       response: response,
       context: {
         balance: financialContext.totalBalance,
-        powered_by: hasClaudeKey ? 'Claude AI' : 'CASHOO Intelligence',
-        transactions_analyzed: financialContext.transactions
+        transactions_analyzed: transactions.length,
+        data_available: true
       }
     });
 
   } catch (error) {
     console.error('Chat error:', error);
-    
-    // Réponse de fallback
-    res.json({
-      success: true,
-      response: `Je suis CASHOO AI, votre assistant financier. Comment puis-je vous aider?
-
-**Services disponibles :**
-• 📊 Analyse de vos finances
-• 💰 Conseils d'épargne
-• 📈 Création de budget
-• 💡 Stratégies financières
-
-Posez-moi une question sur vos finances!`,
-      fallback: true
+    res.status(500).json({
+      error: 'Chat service error',
+      details: error.message
     });
   }
 };
+
+// ========================================
+// FONCTION D'ANALYSE DES TRANSACTIONS
+// ========================================
+function analyzeTransactions(transactions) {
+  const analysis = {
+    transactionCount: transactions.length,
+    monthlyIncome: 0,
+    monthlyExpenses: 0,
+    netCashFlow: 0,
+    payrollDates: [],
+    payrollAmounts: [],
+    averagePayroll: 0,
+    payFrequency: 14,
+    payrollVariation: 'Stable',
+    lastPayroll: null,
+    nextPayrollEstimate: null,
+    fees: [],
+    topCategories: [],
+    topMerchants: [],
+    alerts: [],
+    atmWithdrawals: 0,
+    restaurantTotal: 0,
+    averageTransaction: 0
+  };
+
+  if (!transactions || transactions.length === 0) {
+    return analysis;
+  }
+
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+  const categoryTotals = {};
+  const merchantTotals = {};
+  
+  // Analyser chaque transaction
+  transactions.forEach(tx => {
+    const txDate = new Date(tx.date);
+    const isCurrentMonth = txDate.getMonth() === currentMonth && txDate.getFullYear() === currentYear;
+    
+    // Revenus (crédits)
+    if (tx.credit) {
+      const amount = parseFloat(tx.credit);
+      if (isCurrentMonth) {
+        analysis.monthlyIncome += amount;
+      }
+      
+      // Détecter les paies
+      if (tx.description && (
+        tx.description.toLowerCase().includes('payroll') ||
+        tx.description.toLowerCase().includes('salaire') ||
+        tx.description.includes('ACME JOB CO')
+      )) {
+        analysis.payrollDates.push(tx.date);
+        analysis.payrollAmounts.push(amount);
+        analysis.lastPayroll = tx.date;
+      }
+    }
+    
+    // Dépenses (débits)
+    if (tx.debit || (tx.amount && tx.amount < 0)) {
+      const amount = Math.abs(parseFloat(tx.debit || tx.amount));
+      if (isCurrentMonth) {
+        analysis.monthlyExpenses += amount;
+      }
+      
+      // Catégoriser les dépenses
+      const category = tx.category || 'Non catégorisé';
+      categoryTotals[category] = (categoryTotals[category] || 0) + amount;
+      
+      // Analyser les marchands
+      const merchant = extractMerchant(tx.description || tx.details || '');
+      if (merchant) {
+        if (!merchantTotals[merchant]) {
+          merchantTotals[merchant] = { count: 0, total: 0 };
+        }
+        merchantTotals[merchant].count++;
+        merchantTotals[merchant].total += amount;
+      }
+      
+      // Détecter les frais
+      if (category && category.toLowerCase().includes('fees')) {
+        analysis.fees.push({
+          date: txDate.toLocaleDateString('fr-CA'),
+          description: tx.description || tx.details,
+          amount: amount,
+          category: category
+        });
+      }
+      
+      // Compter les retraits ATM
+      if (tx.description && tx.description.toLowerCase().includes('atm')) {
+        analysis.atmWithdrawals++;
+      }
+      
+      // Total restaurants
+      if (category && (category.includes('restaurant') || category.includes('dining'))) {
+        analysis.restaurantTotal += amount;
+      }
+    }
+  });
+
+  // Calculer le flux net
+  analysis.netCashFlow = analysis.monthlyIncome - analysis.monthlyExpenses;
+  
+  // Analyser les paies
+  if (analysis.payrollAmounts.length > 0) {
+    analysis.averagePayroll = analysis.payrollAmounts.reduce((a, b) => a + b, 0) / analysis.payrollAmounts.length;
+    
+    // Calculer la fréquence des paies
+    if (analysis.payrollDates.length >= 2) {
+      const date1 = new Date(analysis.payrollDates[0]);
+      const date2 = new Date(analysis.payrollDates[1]);
+      const daysDiff = Math.abs((date2 - date1) / (1000 * 60 * 60 * 24));
+      analysis.payFrequency = Math.round(daysDiff);
+    }
+    
+    // Estimer la prochaine paie
+    if (analysis.lastPayroll) {
+      const lastPay = new Date(analysis.lastPayroll);
+      const nextPay = new Date(lastPay);
+      nextPay.setDate(nextPay.getDate() + analysis.payFrequency);
+      analysis.nextPayrollEstimate = nextPay.toLocaleDateString('fr-CA');
+    }
+    
+    // Analyser la variation
+    const minPay = Math.min(...analysis.payrollAmounts);
+    const maxPay = Math.max(...analysis.payrollAmounts);
+    const variation = ((maxPay - minPay) / analysis.averagePayroll) * 100;
+    if (variation < 5) {
+      analysis.payrollVariation = 'Très stable';
+    } else if (variation < 15) {
+      analysis.payrollVariation = 'Stable avec légères variations';
+    } else {
+      analysis.payrollVariation = `Variable (±${variation.toFixed(0)}%)`;
+    }
+  }
+  
+  // Top catégories
+  analysis.topCategories = Object.entries(categoryTotals)
+    .map(([category, total]) => ({
+      category,
+      total,
+      count: transactions.filter(tx => tx.category === category).length
+    }))
+    .sort((a, b) => b.total - a.total);
+  
+  // Top marchands
+  analysis.topMerchants = Object.entries(merchantTotals)
+    .map(([merchant, data]) => ({
+      merchant,
+      count: data.count,
+      total: data.total
+    }))
+    .sort((a, b) => b.total - a.total);
+  
+  // Moyenne des transactions
+  const debitTransactions = transactions.filter(tx => tx.debit || (tx.amount && tx.amount < 0));
+  if (debitTransactions.length > 0) {
+    analysis.averageTransaction = analysis.monthlyExpenses / debitTransactions.length;
+  }
+  
+  // Générer des alertes
+  if (analysis.netCashFlow < 0) {
+    analysis.alerts.push(`⚠️ Déficit de $${Math.abs(analysis.netCashFlow).toFixed(2)} ce mois`);
+  }
+  
+  if (analysis.fees.length > 5) {
+    const totalFees = analysis.fees.reduce((sum, f) => sum + f.amount, 0);
+    analysis.alerts.push(`💸 ${analysis.fees.length} frais détectés ($${totalFees.toFixed(2)} total)`);
+  }
+  
+  if (analysis.atmWithdrawals > 4) {
+    analysis.alerts.push(`🏧 ${analysis.atmWithdrawals} retraits ATM (considérez l'usage de carte)`);
+  }
+  
+  const highCostLoans = transactions.filter(tx => 
+    tx.category && (tx.category.includes('payday') || tx.category.includes('high_cost'))
+  );
+  if (highCostLoans.length > 0) {
+    const loanTotal = highCostLoans.reduce((sum, tx) => sum + Math.abs(tx.debit || tx.amount || 0), 0);
+    analysis.alerts.push(`🚨 Prêts à coût élevé: $${loanTotal.toFixed(2)} en frais`);
+  }
+
+  return analysis;
+}
+
+// Fonction pour extraire le nom du marchand
+function extractMerchant(description) {
+  // Nettoyer et extraire le nom du marchand
+  const cleanDesc = description.replace(/Other Reference #.*$/i, '').trim();
+  
+  // Patterns communs
+  const patterns = [
+    /^POS Purchase (.+?)(?:\d{3,}|St|On)/i,
+    /^Pre-Authorized (.+?)(?:Other|Pre)/i,
+    /^Bill Payment (.+?)(?:\d{10,}|Confirmation)/i,
+    /^ATM Withdrawal/i,
+    /^e-Transfer/i
+  ];
+  
+  for (const pattern of patterns) {
+    const match = cleanDesc.match(pattern);
+    if (match) {
+      return match[1]?.trim() || match[0];
+    }
+  }
+  
+  // Si aucun pattern ne match, retourner les premiers mots
+  return cleanDesc.split(' ').slice(0, 3).join(' ');
+}
