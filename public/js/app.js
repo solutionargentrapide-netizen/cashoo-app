@@ -267,17 +267,32 @@ function handleInveriteMessage(event) {
     if (event.origin.includes('inverite.com')) {
         console.log('Inverite message received:', event.data);
         
-        // Inverite peut envoyer différents formats
-        if (event.data === 'success' || 
-            event.data.verified === 1 || 
-            (event.data.type && event.data.type.includes('completed'))) {
-            
+        // Gérer les différents types de messages Inverite
+        if (event.data === 'success') {
             console.log('Inverite verification successful!');
             closeIframe();
-            showStatus('Inverite verification completed successfully!', 'success');
+            showStatus('Inverite verification completed! Fetching data...', 'success');
             
-            // Récupérer les données Inverite via webhook ou API
-            fetchInveriteData();
+            // Récupérer le GUID de la requête
+            // Le GUID est dans l'URL : 339703B7-9B97-4FDC-8727-D04357A08DAD
+            fetchInveriteData('339703B7-9B97-4FDC-8727-D04357A08DAD');
+            
+        } else if (event.data.type === 'ibv.request.completed') {
+            // Nouveau format de message avec le GUID
+            const guid = event.data.content?.request?.guid;
+            console.log('Inverite completed with GUID:', guid);
+            closeIframe();
+            showStatus('Inverite verification completed! Fetching data...', 'success');
+            
+            if (guid) {
+                fetchInveriteData(guid);
+            } else {
+                fetchInveriteData();
+            }
+            
+        } else if (event.data.type === 'ibv.data_collection.started') {
+            showStatus('Inverite is processing your bank data...', 'info');
+            
         } else if (event.data === 'error' || event.data.verified === 0) {
             showStatus('Inverite verification failed', 'error');
             closeIframe();
@@ -286,23 +301,30 @@ function handleInveriteMessage(event) {
 }
 
 // Récupérer les données Inverite
-async function fetchInveriteData() {
+async function fetchInveriteData(guid) {
     showStatus('Fetching verification data...', 'info');
     
     try {
-        const response = await fetch(`${API_URL}/inverite/fetch`, {
+        // Si on a un GUID, l'envoyer avec la requête
+        const url = guid ? `/api/inverite/fetch?guid=${guid}` : '/api/inverite/fetch';
+        
+        const response = await fetch(url, {
+            method: 'POST',
             headers: {
-                'Authorization': `Bearer ${authToken}`
-            }
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ guid: guid || null })
         });
 
         const data = await response.json();
+        console.log('Inverite data received:', data);
         
         if (data.success && data.accounts) {
             displayAccountsData({
                 accounts: data.accounts,
                 transactions: data.transactions || [],
-                summary: {
+                summary: data.summary || {
                     totalBalance: data.accounts.reduce((sum, acc) => sum + (acc.balance || 0), 0)
                 }
             });
@@ -310,12 +332,22 @@ async function fetchInveriteData() {
             document.getElementById('lastSync').textContent = 
                 `Verified via Inverite: ${new Date().toLocaleString()}`;
             showStatus('Verification data loaded successfully!', 'success');
+            
+            // Masquer le bouton Connect et afficher Refresh
+            document.getElementById('connectBtn').style.display = 'none';
+            document.getElementById('inveriteBtn').style.display = 'none';
+            document.getElementById('syncBtn').style.display = 'inline-block';
+            
+        } else if (data.error) {
+            showStatus('Error: ' + data.error, 'error');
         } else {
-            showStatus('No verification data available yet', 'warning');
+            showStatus('No verification data available yet. Try again in a few seconds.', 'warning');
+            // Réessayer après 3 secondes
+            setTimeout(() => fetchInveriteData(guid), 3000);
         }
     } catch (error) {
         console.error('Failed to fetch Inverite data:', error);
-        showStatus('Failed to fetch verification data', 'error');
+        showStatus('Failed to fetch verification data: ' + error.message, 'error');
     }
 }
 
