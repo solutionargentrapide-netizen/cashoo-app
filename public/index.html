@@ -1,401 +1,9 @@
-// Générer le contenu de la timeline
-        const timelineHTML = last7Transactions.map(tx => {
-            const date = new Date(tx.date);
-            const isToday = date.toDateString() === new Date().toDateString();
-            const isYesterday = date.toDateString() === new Date(Date.now() - 86400000).toDateString();
-            
-            let dateStr = isToday ? 'Aujourd\'hui' : isYesterday ? 'Hier' : date.toLocaleDateString('fr-CA');
-            const timeStr = date.toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit' });
-            
-            const amount = tx.credit ? `+$${tx.credit}` : `-$${tx.debit}`;
-            const amountClass = tx.credit ? 'credit' : 'debit';
-            const category = categorizeTransaction(tx);
-            
-            return `
-                <div class="transaction-row">
-                    <div class="tx-time">${dateStr} ${timeStr}</div>
-                    <div class="tx-desc">${tx.description.substring(0, 30)}...</div>
-                    <div class="tx-amount ${amountClass}">${amount}</div>
-                    <div class="tx-category">[${category}]</div>
-                </div>
-            `;
-        }).join('');
-        
-        document.getElementById('transactionTimeline').innerHTML = timelineHTML;
-    }
-    
-    // 7. GÉNÉRER LE GRAPHIQUE DES CATÉGORIES
-    function generateCategoryChart() {
-        const categories = {
-            'Frais/Prêts': 0,
-            'Essentiels': 0,
-            'Retraits ATM': 0,
-            'Achats': 0,
-            'Autres': 0
-        };
-        
-        window.allTransactions.forEach(tx => {
-            if (tx.debit) {
-                const amount = parseFloat(tx.debit);
-                const desc = tx.description.toLowerCase();
-                
-                if (desc.includes('cash max') || desc.includes('lender') || 
-                    desc.includes('bdo') || desc.includes('farber') || 
-                    desc.includes('fee') || desc.includes('charge')) {
-                    categories['Frais/Prêts'] += amount;
-                } else if (desc.includes('atm') || desc.includes('withdrawal')) {
-                    categories['Retraits ATM'] += amount;
-                } else if (desc.includes('walmart') || desc.includes('metro') || 
-                          desc.includes('grocery')) {
-                    categories['Essentiels'] += amount;
-                } else if (desc.includes('tim hortons') || desc.includes('amazon') || 
-                          desc.includes('mcdonald')) {
-                    categories['Achats'] += amount;
-                } else {
-                    categories['Autres'] += amount;
-                }
-            }
-        });
-        
-        // Créer le graphique circulaire simple
-        const total = Object.values(categories).reduce((a, b) => a + b, 0);
-        let chartHTML = '<div class="category-list">';
-        
-        const colors = ['#ef4444', '#f59e0b', '#3b82f6', '#10b981', '#6b7280'];
-        let colorIndex = 0;
-        
-        for (const [category, amount] of Object.entries(categories)) {
-            if (amount > 0) {
-                const percentage = ((amount / total) * 100).toFixed(1);
-                chartHTML += `
-                    <div class="category-item">
-                        <span class="category-dot" style="background: ${colors[colorIndex]}"></span>
-                        <span class="category-name">${category}</span>
-                        <span class="category-amount">$${amount.toFixed(2)}</span>
-                        <span class="category-percent">${percentage}%</span>
-                    </div>
-                `;
-                colorIndex++;
-            }
-        }
-        
-        chartHTML += '</div>';
-        document.getElementById('categoryChart').innerHTML = chartHTML;
-    }
-    
-    // 8. CONFIGURER LES BOUTONS D'ACTION
-    function setupActionButtons() {
-        // Conseil du jour
-        document.getElementById('btnConseil').onclick = () => {
-            showNotification('💡 Astuce: Évitez les retraits ATM multiples. Retirez une fois par semaine pour économiser les frais.');
-        };
-        
-        // Négocier frais
-        document.getElementById('btnNegocier').onclick = () => {
-            const message = "J'ai détecté $1,100/mois en frais. Voulez-vous que je prépare des lettres de négociation?";
-            openChatWithMessage(message);
-        };
-        
-        // Plan budget
-        document.getElementById('btnBudget').onclick = () => {
-            openChatWithMessage("Créez-moi un budget réaliste basé sur mes revenus de $" + calculateMonthlyStats().income);
-        };
-        
-        // Rafraîchir
-        document.getElementById('btnRefresh').onclick = () => {
-            refreshAllData();
-        };
-        
-        // Rapport
-        document.getElementById('btnRapport').onclick = () => {
-            generateMonthlyReport();
-        };
-        
-        // Assistant
-        document.getElementById('btnAssistant').onclick = () => {
-            toggleChat();
-        };
-    }
-    
-    // 9. ASSISTANT CHAT INTÉGRÉ
-    function initializeChat() {
-        const chatHTML = `
-            <div id="chatWidget" class="chat-widget">
-                <div class="chat-header" onclick="toggleChat()">
-                    <span class="chat-title">💬 Assistant CASHOO</span>
-                    <span class="chat-minimize">−</span>
-                </div>
-                <div class="chat-body">
-                    <div id="chatMessages" class="chat-messages">
-                        <div class="chat-message assistant">
-                            <strong>Assistant:</strong> J'ai analysé vos finances. Je peux vous faire économiser $400/mois. Comment puis-je vous aider?
-                        </div>
-                    </div>
-                    <div class="chat-input-container">
-                        <input type="text" id="chatInput" placeholder="Tapez votre message..." 
-                               onkeypress="if(event.key==='Enter') sendChatMessage()">
-                        <button onclick="sendChatMessage()">Envoyer</button>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        document.body.insertAdjacentHTML('beforeend', chatHTML);
-    }
-    
-    function toggleChat() {
-        const widget = document.getElementById('chatWidget');
-        widget.classList.toggle('expanded');
-    }
-    
-    function openChatWithMessage(message) {
-        const widget = document.getElementById('chatWidget');
-        widget.classList.add('expanded');
-        document.getElementById('chatInput').value = message;
-        setTimeout(() => sendChatMessage(), 500);
-    }
-    
-    async function sendChatMessage() {
-        const input = document.getElementById('chatInput');
-        const message = input.value.trim();
-        if (!message) return;
-        
-        // Ajouter le message de l'utilisateur
-        const messagesDiv = document.getElementById('chatMessages');
-        messagesDiv.innerHTML += `
-            <div class="chat-message user">
-                <strong>Vous:</strong> ${message}
-            </div>
-        `;
-        
-        input.value = '';
-        
-        // Appeler l'API Claude
-        try {
-            const response = await fetch('/api/claude/chat', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('cashoo_token')}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ 
-                    message: message,
-                    context: {
-                        balance: window.currentBalance,
-                        monthlyStats: window.monthlyStats,
-                        recentTransactions: window.allTransactions.slice(0, 10)
-                    }
-                })
-            });
-            
-            const data = await response.json();
-            
-            messagesDiv.innerHTML += `
-                <div class="chat-message assistant">
-                    <strong>Assistant:</strong> ${data.response || "Analysons vos données..."}
-                </div>
-            `;
-        } catch (error) {
-            messagesDiv.innerHTML += `
-                <div class="chat-message assistant">
-                    <strong>Assistant:</strong> Je suis en mode local. Vos stats: Revenus $${window.monthlyStats.income.toFixed(2)}, Dépenses $${window.monthlyStats.expenses.toFixed(2)}
-                </div>
-            `;
-        }
-        
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    }
-    
-    // 10. CALCULER LES OBJECTIFS
-    function updateGoals() {
-        // Objectif 1: Éliminer déficit
-        const deficit = Math.abs(window.monthlyStats.deficit);
-        const saved = Math.max(0, deficit - Math.abs(window.monthlyStats.deficit));
-        const progress1 = deficit > 0 ? (saved / deficit * 100) : 0;
-        
-        document.getElementById('goal1Progress').style.width = `${progress1}%`;
-        document.getElementById('goal1Text').textContent = `$${saved.toFixed(2)} / $${deficit.toFixed(2)}`;
-        document.getElementById('goal1Percent').textContent = `${progress1.toFixed(0)}%`;
-        
-        // Objectif 2: Fonds urgence
-        const emergencyTarget = 500;
-        const emergencySaved = Math.max(0, window.currentBalance - 100); // Garder $100 minimum
-        const progress2 = (emergencySaved / emergencyTarget * 100);
-        
-        document.getElementById('goal2Progress').style.width = `${Math.min(100, progress2)}%`;
-        document.getElementById('goal2Text').textContent = `$${emergencySaved.toFixed(2)} / $${emergencyTarget}`;
-        document.getElementById('goal2Percent').textContent = `${Math.min(100, progress2).toFixed(0)}%`;
-    }
-    
-    // 11. GÉNÉRER NOTIFICATIONS
-    function generateNotifications() {
-        const notifications = [];
-        
-        // Analyser les patterns
-        const atmWithdrawals = window.allTransactions.filter(tx => 
-            tx.description.toLowerCase().includes('atm') && tx.debit
-        ).slice(0, 5);
-        
-        if (atmWithdrawals.length >= 3) {
-            const totalATM = atmWithdrawals.reduce((sum, tx) => sum + parseFloat(tx.debit || 0), 0);
-            notifications.push(`⚠️ Pattern détecté: ${atmWithdrawals.length} retraits ATM en ${3} jours (-$${totalATM.toFixed(2)})`);
-        }
-        
-        // Opportunités
-        if (window.monthlyStats.expenses > window.monthlyStats.income) {
-            notifications.push(`💡 Opportunité: Réduire les frais de ${Math.abs(window.monthlyStats.deficit).toFixed(2)}$ pour équilibrer le budget`);
-        }
-        
-        // Alertes de solde
-        if (window.currentBalance < 100) {
-            notifications.push(`🔴 Alerte: Solde faible (${window.currentBalance.toFixed(2)}$) - Risque de NSF`);
-        }
-        
-        const notifHTML = notifications.map(n => `<div class="notification-item">${n}</div>`).join('');
-        document.getElementById('notifications').innerHTML = notifHTML || '<div class="notification-item">✅ Aucune alerte</div>';
-    }
-    
-    // 12. FONCTION REFRESH GLOBAL
-    async function refreshAllData() {
-        showNotification('🔄 Actualisation des données...');
-        
-        try {
-            // Recharger les données Inverite
-            const response = await fetch('/api/inverite/fetch', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('cashoo_token')}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ guid: '339703B7-9B97-4FDC-8727-D04357A08DAD' })
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                window.currentBalance = data.accounts[0]?.balance || 0;
-                window.allTransactions = data.transactions || [];
-                
-                // Recalculer tout
-                updateDashboard();
-                showNotification('✅ Données actualisées');
-            }
-        } catch (error) {
-            console.error('Erreur refresh:', error);
-            showNotification('❌ Erreur de connexion');
-        }
-    }
-    
-    // 13. GÉNÉRER RAPPORT MENSUEL
-    function generateMonthlyReport() {
-        const report = {
-            period: new Date().toLocaleDateString('fr-CA', { month: 'long', year: 'numeric' }),
-            balance: window.currentBalance,
-            income: window.monthlyStats.income,
-            expenses: window.monthlyStats.expenses,
-            deficit: window.monthlyStats.deficit,
-            topExpenses: [],
-            recommendations: []
-        };
-        
-        // Top 5 dépenses
-        const expenseMap = {};
-        window.allTransactions.forEach(tx => {
-            if (tx.debit) {
-                const key = tx.description.split(' ')[0];
-                expenseMap[key] = (expenseMap[key] || 0) + parseFloat(tx.debit);
-            }
-        });
-        
-        report.topExpenses = Object.entries(expenseMap)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 5)
-            .map(([name, amount]) => ({ name, amount }));
-        
-        // Recommandations
-        if (report.deficit < 0) {
-            report.recommendations.push('Réduire les frais de ' + Math.abs(report.deficit).toFixed(2) + '$');
-        }
-        
-        // Afficher dans une modal ou télécharger
-        console.log('Rapport généré:', report);
-        showNotification('📊 Rapport généré - Voir console');
-        
-        // Option: Créer un PDF ou l'afficher dans une modal
-        alert(`RAPPORT MENSUEL
-        
-Période: ${report.period}
-Solde: $${report.balance.toFixed(2)}
-Revenus: $${report.income.toFixed(2)}
-Dépenses: $${report.expenses.toFixed(2)}
-Résultat: ${report.deficit >= 0 ? '+' : ''}$${report.deficit.toFixed(2)}
-
-Top dépenses:
-${report.topExpenses.map(e => `- ${e.name}: $${e.amount.toFixed(2)}`).join('\n')}
-
-Recommandations:
-${report.recommendations.join('\n')}
-        `);
-    }
-    
-    // 14. UTILITAIRE DE NOTIFICATION
-    function showNotification(message, duration = 3000) {
-        const notif = document.createElement('div');
-        notif.className = 'toast-notification';
-        notif.textContent = message;
-        document.body.appendChild(notif);
-        
-        setTimeout(() => notif.classList.add('show'), 100);
-        
-        setTimeout(() => {
-            notif.classList.remove('show');
-            setTimeout(() => notif.remove(), 300);
-        }, duration);
-    }
-    
-    // 15. CATÉGORISER TRANSACTION
-    function categorizeTransaction(tx) {
-        const desc = tx.description.toLowerCase();
-        
-        if (desc.includes('cash max') || desc.includes('lender')) return 'Prêt';
-        if (desc.includes('bdo') || desc.includes('farber')) return 'Faillite';
-        if (desc.includes('atm')) return 'ATM';
-        if (desc.includes('walmart') || desc.includes('metro')) return 'Épicerie';
-        if (desc.includes('tim hortons') || desc.includes('mcdonald')) return 'Restaurant';
-        if (desc.includes('e-transfer in')) return 'Revenu';
-        if (desc.includes('acme job')) return 'Paie';
-        if (desc.includes('fee') || desc.includes('charge')) return 'Frais';
-        
-        return 'Autre';
-    }
-    
-    // ============================
-    // DÉMARRAGE DE L'APPLICATION
-    // ============================
-    
-    window.addEventListener('DOMContentLoaded', () => {
-        console.log('🚀 CASHOO Dashboard 3.0 - Démarrage');
-        
-        // Vérifier l'authentification
-        const token = localStorage.getItem('cashoo_token');
-        if (!token) {
-            window.location.href = '/login';
-            return;
-        }
-        
-        // Initialiser les composants
-        initializeDashboard();
-        initializeChat();
-        
-        // Démarrer les mises à jour automatiques
-        setInterval(updateAlerts, 60000); // Chaque minute
-        setInterval(refreshAllData, 300000); // Chaque 5 minutes
-        
-        console.log('✅ Dashboard prêt');
-    });
-    </script>
-    
-    <!-- STYLES COMPLETS -->
+à<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CASHOO - Dashboard Financier Intelligent</title>
     <style>
         /* Variables CSS */
         :root {
@@ -523,6 +131,11 @@ ${report.recommendations.join('\n')}
             border-top: 1px solid #e5e7eb;
         }
         
+        .card-details div {
+            padding: 4px 0;
+            font-size: 14px;
+        }
+        
         .progress-bar {
             height: 8px;
             background: #e5e7eb;
@@ -619,14 +232,19 @@ ${report.recommendations.join('\n')}
         
         .tx-desc {
             font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         
         .tx-amount.credit {
             color: var(--success);
+            font-weight: 600;
         }
         
         .tx-amount.debit {
             color: var(--danger);
+            font-weight: 600;
         }
         
         .tx-category {
@@ -718,6 +336,31 @@ ${report.recommendations.join('\n')}
             border-radius: 5px;
             margin-bottom: 10px;
             font-size: 14px;
+        }
+        
+        .next-payments {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .payment-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px;
+            background: #f9fafb;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        .payment-date {
+            color: #6b7280;
+            font-size: 12px;
+        }
+        
+        .payment-amount {
+            font-weight: 600;
+            color: var(--danger);
         }
         
         /* CHAT WIDGET */
@@ -847,7 +490,797 @@ ${report.recommendations.join('\n')}
                 bottom: 0;
                 border-radius: 10px 10px 0 0;
             }
+            
+            .transaction-row {
+                grid-template-columns: 1fr;
+                gap: 5px;
+            }
         }
     </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- SECTION 1: BARRE D'ALERTES -->
+        <div class="alert-bar">
+            <div class="alert-grid" id="alertsContainer">
+                <div class="alert-item alert-info">
+                    <span>📅</span>
+                    <span>Chargement des alertes...</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- SECTION 2: CARTES PRINCIPALES -->
+        <div class="main-cards">
+            <!-- Carte Solde -->
+            <div class="stat-card">
+                <div class="card-header">
+                    <span class="card-title">SOLDE EN TEMPS RÉEL</span>
+                    <span class="card-icon">💰</span>
+                </div>
+                <div class="card-value" id="currentBalance">$0.00</div>
+                <div class="card-change" id="balanceChange">↓ $0 aujourd'hui</div>
+                <div class="card-footer">
+                    <small>Projection fin de mois: <span id="monthEndProjection">$0</span></small>
+                    <div class="progress-bar">
+                        <div class="progress-fill progress-danger" id="balanceProgress" style="width: 20%"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Carte Flux Mensuel -->
+            <div class="stat-card">
+                <div class="card-header">
+                    <span class="card-title">FLUX MENSUEL</span>
+                    <span class="card-icon">📊</span>
+                </div>
+                <div class="card-value" id="monthlyFlow">-$0</div>
+                <div class="card-details">
+                    <div>Revenus: <span id="monthlyIncome" class="positive">$0</span></div>
+                    <div>Dépenses: <span id="monthlyExpenses" class="negative">$0</span></div>
+                    <div>Déficit: <span id="monthlyDeficit" class="negative">$0</span></div>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill progress-warning" id="spendingProgress" style="width: 110%"></div>
+                </div>
+            </div>
+            
+            <!-- Carte Frais à Éliminer -->
+            <div class="stat-card">
+                <div class="card-header">
+                    <span class="card-title">FRAIS À ÉLIMINER</span>
+                    <span class="card-icon">🔥</span>
+                </div>
+                <div class="card-value" id="totalFees">$0/mois</div>
+                <div class="card-details" id="feesBreakdown">
+                    <div>Prêts payday: <span class="negative">$0</span></div>
+                    <div>Faillite: <span class="negative">$0</span></div>
+                    <div>Frais bancaires: <span class="negative">$0</span></div>
+                </div>
+                <button class="action-btn" onclick="openChatWithMessage('Comment éliminer ces frais?')">
+                    Plan de sortie →
+                </button>
+            </div>
+            
+            <!-- Carte Prochains Paiements -->
+            <div class="stat-card">
+                <div class="card-header">
+                    <span class="card-title">PROCHAINS PAIEMENTS</span>
+                    <span class="card-icon">📅</span>
+                </div>
+                <div class="next-payments" id="nextPayments">
+                    <div class="payment-item">
+                        <span>Chargement...</span>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <small>Total sur 7 jours: <span id="weekTotal">$0</span></small>
+                </div>
+            </div>
+        </div>
+        
+        <!-- SECTION 3: ANALYSE -->
+        <div class="analysis-section">
+            <!-- Graphique des catégories -->
+            <div class="analysis-card">
+                <h3 class="section-title">📊 Dépenses par Catégorie</h3>
+                <div id="categoryChart">
+                    <div class="category-list">
+                        <div class="category-item">
+                            <span class="category-dot" style="background: #ef4444"></span>
+                            <span class="category-name">Chargement...</span>
+                            <span class="category-amount">$0</span>
+                            <span class="category-percent">0%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Timeline des transactions -->
+            <div class="analysis-card">
+                <h3 class="section-title">📝 Transactions Récentes</h3>
+                <div class="transaction-timeline" id="transactionTimeline">
+                    <div class="transaction-row">
+                        <div class="tx-time">Chargement...</div>
+                        <div class="tx-desc">Chargement des transactions...</div>
+                        <div class="tx-amount">$0</div>
+                        <div class="tx-category">[...]</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- SECTION 4: ACTIONS RAPIDES -->
+        <div class="actions-section">
+            <h3 class="section-title">⚡ Actions Rapides</h3>
+            <div class="action-buttons">
+                <button class="action-btn" id="btnConseil">💡 Conseil du jour</button>
+                <button class="action-btn" id="btnNegocier">📞 Négocier frais</button>
+                <button class="action-btn" id="btnBudget">💰 Plan budget</button>
+                <button class="action-btn" id="btnRefresh">🔄 Rafraîchir</button>
+                <button class="action-btn" id="btnRapport">📊 Rapport mois</button>
+                <button class="action-btn" id="btnAssistant">💬 Assistant AI</button>
+            </div>
+        </div>
+        
+        <!-- SECTION 5: OBJECTIFS -->
+        <div class="sidebar-section">
+            <h3 class="section-title">🎯 Objectifs & Progrès</h3>
+            
+            <!-- Objectif 1 -->
+            <div class="goal-item">
+                <div class="goal-header">
+                    <span class="goal-title">Éliminer le déficit</span>
+                    <span id="goal1Percent">0%</span>
+                </div>
+                <div class="goal-stats">
+                    <span id="goal1Text">$0 / $284</span>
+                    <span>30 jours restants</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill progress-warning" id="goal1Progress" style="width: 0%"></div>
+                </div>
+            </div>
+            
+            <!-- Objectif 2 -->
+            <div class="goal-item">
+                <div class="goal-header">
+                    <span class="goal-title">Fonds d'urgence</span>
+                    <span id="goal2Percent">0%</span>
+                </div>
+                <div class="goal-stats">
+                    <span id="goal2Text">$0 / $500</span>
+                    <span>[Configurer virement]</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill progress-success" id="goal2Progress" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- SECTION 6: NOTIFICATIONS -->
+        <div class="notifications-section">
+            <h3 class="section-title">🔔 Notifications & Alertes</h3>
+            <div id="notifications">
+                <div class="notification-item">✅ Aucune alerte pour le moment</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- JAVASCRIPT COMPLET -->
+    <script src="/js/app.js"></script>
+    <script>
+    // Variables globales
+    window.currentBalance = 0;
+    window.allTransactions = [];
+    window.monthlyStats = { income: 0, expenses: 0, deficit: 0 };
+    
+    // INITIALISATION AU CHARGEMENT
+    window.addEventListener('DOMContentLoaded', () => {
+        console.log('🚀 CASHOO Dashboard 3.0 - Initialisation');
+        
+        // Vérifier l'authentification
+        const token = localStorage.getItem('cashoo_token');
+        if (!token) {
+            console.log('❌ Pas de token, redirection vers login');
+            window.location.href = '/login.html';
+            return;
+        }
+        
+        console.log('✅ Token trouvé, initialisation du dashboard');
+        
+        // Initialiser les composants
+        initializeDashboard();
+        initializeChat();
+        
+        // Démarrer les mises à jour automatiques
+        setInterval(updateAlerts, 60000); // Chaque minute
+        setInterval(refreshAllData, 300000); // Chaque 5 minutes
+    });
+    
+    // INITIALISER LE DASHBOARD
+    async function initializeDashboard() {
+        console.log('📊 Chargement des données financières...');
+        
+        // Charger les données
+        await loadFinancialData();
+        
+        // Mettre à jour tous les composants
+        updateDashboard();
+        
+        // Configurer les boutons
+        setupActionButtons();
+    }
+    
+    // CHARGER LES DONNÉES FINANCIÈRES
+    async function loadFinancialData() {
+        try {
+            const token = localStorage.getItem('cashoo_token');
+            
+            // Charger les données Inverite
+            const response = await fetch('/api/inverite/fetch', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ 
+                    guid: localStorage.getItem('inverite_guid') || '339703B7-9B97-4FDC-8727-D04357A08DAD' 
+                })
+            });
+            
+            const data = await response.json();
+            console.log('📈 Données reçues:', data);
+            
+            if (data.success) {
+                window.currentBalance = data.accounts[0]?.balance || 0;
+                window.allTransactions = data.transactions || [];
+                
+                // Si le solde est 0, essayer de le récupérer depuis les transactions
+                if (window.currentBalance === 0 && window.allTransactions.length > 0) {
+                    const firstTxWithBalance = window.allTransactions.find(tx => tx.balance > 0);
+                    if (firstTxWithBalance) {
+                        window.currentBalance = parseFloat(firstTxWithBalance.balance);
+                    }
+                }
+                
+                console.log(`✅ Solde: $${window.currentBalance}, Transactions: ${window.allTransactions.length}`);
+            }
+        } catch (error) {
+            console.error('❌ Erreur chargement:', error);
+            // Données de démonstration
+            window.currentBalance = 92.53;
+            showNotification('⚠️ Mode démo activé');
+        }
+    }
+    
+    // METTRE À JOUR LE DASHBOARD
+    function updateDashboard() {
+        updateAlerts();
+        updateMainCards();
+        updateTransactionTimeline();
+        generateCategoryChart();
+        updateGoals();
+        generateNotifications();
+    }
+    
+    // METTRE À JOUR LES ALERTES
+    function updateAlerts() {
+        const alerts = [];
+        
+        // Calculer les stats mensuelles
+        const stats = calculateMonthlyStats();
+        
+        // Alerte déficit
+        if (stats.deficit < 0) {
+            alerts.push({
+                type: 'warning',
+                icon: '⚠️',
+                text: `Déficit mensuel: -$${Math.abs(stats.deficit).toFixed(2)} (Action requise)`
+            });
+        }
+        
+        // Alerte solde faible
+        if (window.currentBalance < 100) {
+            alerts.push({
+                type: 'urgent',
+                icon: '🚨',
+                text: `ALERTE: Solde faible ($${window.currentBalance.toFixed(2)}) - Risque de NSF`
+            });
+        }
+        
+        // Prochaine paie
+        const nextPay = calculateNextPayday();
+        if (nextPay) {
+            const daysUntil = Math.floor((nextPay.date - new Date()) / (1000 * 60 * 60 * 24));
+            alerts.push({
+                type: 'info',
+                icon: '📅',
+                text: `Prochaine paie: ${nextPay.date.toLocaleDateString('fr-CA')} (${daysUntil} jours) - ~$${nextPay.amount.toFixed(2)}`
+            });
+        }
+        
+        // Afficher les alertes
+        const alertsHTML = alerts.map(alert => `
+            <div class="alert-item alert-${alert.type}">
+                <span>${alert.icon}</span>
+                <span>${alert.text}</span>
+            </div>
+        `).join('');
+        
+        document.getElementById('alertsContainer').innerHTML = alertsHTML || '<div class="alert-item">✅ Aucune alerte</div>';
+    }
+    
+    // CALCULER LES STATISTIQUES MENSUELLES
+    function calculateMonthlyStats() {
+        let income = 0;
+        let expenses = 0;
+        
+        window.allTransactions.forEach(tx => {
+            if (tx.credit) income += parseFloat(tx.credit);
+            if (tx.debit) expenses += parseFloat(tx.debit);
+        });
+        
+        window.monthlyStats = {
+            income: income,
+            expenses: expenses,
+            deficit: income - expenses
+        };
+        
+        return window.monthlyStats;
+    }
+    
+    // CALCULER LA PROCHAINE DATE DE PAIE
+    function calculateNextPayday() {
+        const payTxs = window.allTransactions.filter(tx => 
+            tx.description && tx.description.toLowerCase().includes('acme') && tx.credit
+        );
+        
+        if (payTxs.length < 2) return null;
+        
+        const lastPay = new Date(payTxs[0].date);
+        const nextPay = new Date(lastPay);
+        nextPay.setDate(nextPay.getDate() + 14); // Bi-hebdomadaire
+        
+        const avgAmount = payTxs.slice(0, 3).reduce((sum, tx) => sum + parseFloat(tx.credit), 0) / Math.min(3, payTxs.length);
+        
+        return { date: nextPay, amount: avgAmount };
+    }
+    
+    // METTRE À JOUR LES CARTES PRINCIPALES
+    function updateMainCards() {
+        const stats = calculateMonthlyStats();
+        
+        // Carte Solde
+        document.getElementById('currentBalance').textContent = `$${window.currentBalance.toFixed(2)}`;
+        
+        // Changement du jour
+        let todayChange = 0;
+        const today = new Date().toDateString();
+        window.allTransactions.forEach(tx => {
+            if (new Date(tx.date).toDateString() === today) {
+                if (tx.credit) todayChange += parseFloat(tx.credit);
+                if (tx.debit) todayChange -= parseFloat(tx.debit);
+            }
+        });
+        
+        document.getElementById('balanceChange').textContent = `${todayChange >= 0 ? '↑' : '↓'} $${Math.abs(todayChange).toFixed(2)} aujourd'hui`;
+        document.getElementById('balanceChange').className = todayChange >= 0 ? 'card-change positive' : 'card-change negative';
+        
+        // Projection fin de mois
+        const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
+        const daysPassed = new Date().getDate();
+        const dailyBurn = stats.expenses / daysPassed;
+        const projection = window.currentBalance - (dailyBurn * (daysInMonth - daysPassed));
+        
+        document.getElementById('monthEndProjection').textContent = `$${projection.toFixed(2)}`;
+        document.getElementById('monthEndProjection').className = projection >= 0 ? 'positive' : 'negative';
+        
+        // Carte Flux Mensuel
+        document.getElementById('monthlyFlow').textContent = stats.deficit >= 0 ? `+$${stats.deficit.toFixed(2)}` : `-$${Math.abs(stats.deficit).toFixed(2)}`;
+        document.getElementById('monthlyIncome').textContent = `$${stats.income.toFixed(2)}`;
+        document.getElementById('monthlyExpenses').textContent = `$${stats.expenses.toFixed(2)}`;
+        document.getElementById('monthlyDeficit').textContent = stats.deficit >= 0 ? `+$${stats.deficit.toFixed(2)}` : `-$${Math.abs(stats.deficit).toFixed(2)}`;
+        document.getElementById('monthlyDeficit').className = stats.deficit >= 0 ? 'positive' : 'negative';
+        
+        // Progress bar
+        const spendingRatio = (stats.expenses / stats.income * 100) || 0;
+        document.getElementById('spendingProgress').style.width = `${Math.min(100, spendingRatio)}%`;
+        
+        // Carte Frais
+        let paydayFees = 0, bankruptcyFees = 0, bankFees = 0;
+        
+        window.allTransactions.forEach(tx => {
+            if (tx.debit) {
+                const desc = tx.description.toLowerCase();
+                if (desc.includes('cash max') || desc.includes('lender')) {
+                    paydayFees += parseFloat(tx.debit);
+                } else if (desc.includes('bdo') || desc.includes('farber')) {
+                    bankruptcyFees += parseFloat(tx.debit);
+                } else if (desc.includes('fee') || desc.includes('charge')) {
+                    bankFees += parseFloat(tx.debit);
+                }
+            }
+        });
+        
+        const totalFees = paydayFees + bankruptcyFees + bankFees;
+        document.getElementById('totalFees').textContent = `$${totalFees.toFixed(2)}/mois`;
+        document.getElementById('feesBreakdown').innerHTML = `
+            <div>Prêts payday: <span class="negative">$${paydayFees.toFixed(2)}</span></div>
+            <div>Faillite: <span class="negative">$${bankruptcyFees.toFixed(2)}</span></div>
+            <div>Frais bancaires: <span class="negative">$${bankFees.toFixed(2)}</span></div>
+        `;
+        
+        // Prochains paiements
+        updateNextPayments();
+    }
+    
+    // METTRE À JOUR LES PROCHAINS PAIEMENTS
+    function updateNextPayments() {
+        const recurring = detectRecurringPayments();
+        const next7Days = recurring
+            .filter(p => {
+                const daysUntil = Math.floor((p.nextDate - new Date()) / (1000 * 60 * 60 * 24));
+                return daysUntil >= 0 && daysUntil <= 7;
+            })
+            .sort((a, b) => a.nextDate - b.nextDate)
+            .slice(0, 5);
+        
+        let weekTotal = 0;
+        const paymentsHTML = next7Days.map(payment => {
+            weekTotal += payment.amount;
+            const daysUntil = Math.floor((payment.nextDate - new Date()) / (1000 * 60 * 60 * 24));
+            return `
+                <div class="payment-item">
+                    <div>
+                        <div>${payment.description}</div>
+                        <div class="payment-date">${daysUntil === 0 ? 'Aujourd\'hui' : daysUntil === 1 ? 'Demain' : `Dans ${daysUntil} jours`}</div>
+                    </div>
+                    <span class="payment-amount">-$${payment.amount.toFixed(2)}</span>
+                </div>
+            `;
+        }).join('');
+        
+        document.getElementById('nextPayments').innerHTML = paymentsHTML || '<div class="payment-item"><span>Aucun paiement prévu</span></div>';
+        document.getElementById('weekTotal').textContent = `$${weekTotal.toFixed(2)}`;
+    }
+    
+    // DÉTECTER LES PAIEMENTS RÉCURRENTS
+    function detectRecurringPayments() {
+        const patterns = {};
+        
+        window.allTransactions.forEach(tx => {
+            if (tx.debit) {
+                const key = tx.description.split(' ').slice(0, 3).join(' ').toLowerCase();
+                if (!patterns[key]) patterns[key] = [];
+                patterns[key].push({
+                    date: new Date(tx.date),
+                    amount: parseFloat(tx.debit),
+                    description: tx.description
+                });
+            }
+        });
+        
+        const recurring = [];
+        Object.values(patterns).forEach(payments => {
+            if (payments.length >= 2) {
+                payments.sort((a, b) => b.date - a.date);
+                const lastPayment = payments[0];
+                const nextDate = new Date(lastPayment.date);
+                nextDate.setDate(nextDate.getDate() + 30); // Mensuel par défaut
+                
+                recurring.push({
+                    description: lastPayment.description.split(' ').slice(0, 3).join(' '),
+                    amount: lastPayment.amount,
+                    nextDate: nextDate
+                });
+            }
+        });
+        
+        return recurring;
+    }
+    
+    // GÉNÉRER LE GRAPHIQUE DES CATÉGORIES
+    function generateCategoryChart() {
+        const categories = {
+            'Frais/Prêts': 0,
+            'Essentiels': 0,
+            'Retraits ATM': 0,
+            'Achats': 0,
+            'Autres': 0
+        };
+        
+        window.allTransactions.forEach(tx => {
+            if (tx.debit) {
+                const amount = parseFloat(tx.debit);
+                const desc = tx.description.toLowerCase();
+                
+                if (desc.includes('cash max') || desc.includes('lender') || desc.includes('bdo') || desc.includes('farber') || desc.includes('fee')) {
+                    categories['Frais/Prêts'] += amount;
+                } else if (desc.includes('atm')) {
+                    categories['Retraits ATM'] += amount;
+                } else if (desc.includes('walmart') || desc.includes('metro')) {
+                    categories['Essentiels'] += amount;
+                } else if (desc.includes('tim hortons') || desc.includes('amazon')) {
+                    categories['Achats'] += amount;
+                } else {
+                    categories['Autres'] += amount;
+                }
+            }
+        });
+        
+        const total = Object.values(categories).reduce((a, b) => a + b, 0);
+        const colors = ['#ef4444', '#f59e0b', '#3b82f6', '#10b981', '#6b7280'];
+        let chartHTML = '<div class="category-list">';
+        
+        let colorIndex = 0;
+        for (const [category, amount] of Object.entries(categories)) {
+            if (amount > 0) {
+                const percentage = ((amount / total) * 100).toFixed(1);
+                chartHTML += `
+                    <div class="category-item">
+                        <span class="category-dot" style="background: ${colors[colorIndex]}"></span>
+                        <span class="category-name">${category}</span>
+                        <span class="category-amount">$${amount.toFixed(2)}</span>
+                        <span class="category-percent">${percentage}%</span>
+                    </div>
+                `;
+                colorIndex++;
+            }
+        }
+        
+        chartHTML += '</div>';
+        document.getElementById('categoryChart').innerHTML = chartHTML;
+    }
+    
+    // METTRE À JOUR LA TIMELINE DES TRANSACTIONS
+    function updateTransactionTimeline() {
+        const last7 = window.allTransactions.slice(0, 7);
+        
+        const timelineHTML = last7.map(tx => {
+            const date = new Date(tx.date);
+            const isToday = date.toDateString() === new Date().toDateString();
+            const dateStr = isToday ? 'Aujourd\'hui' : date.toLocaleDateString('fr-CA');
+            const timeStr = date.toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit' });
+            
+            const amount = tx.credit ? `+$${tx.credit}` : `-$${tx.debit}`;
+            const amountClass = tx.credit ? 'credit' : 'debit';
+            
+            return `
+                <div class="transaction-row">
+                    <div class="tx-time">${dateStr} ${timeStr}</div>
+                    <div class="tx-desc">${tx.description}</div>
+                    <div class="tx-amount ${amountClass}">${amount}</div>
+                    <div class="tx-category">[${categorizeTransaction(tx)}]</div>
+                </div>
+            `;
+        }).join('');
+        
+        document.getElementById('transactionTimeline').innerHTML = timelineHTML || '<div>Aucune transaction</div>';
+    }
+    
+    // CATÉGORISER UNE TRANSACTION
+    function categorizeTransaction(tx) {
+        const desc = tx.description.toLowerCase();
+        
+        if (desc.includes('cash max') || desc.includes('lender')) return 'Prêt';
+        if (desc.includes('bdo') || desc.includes('farber')) return 'Faillite';
+        if (desc.includes('atm')) return 'ATM';
+        if (desc.includes('walmart') || desc.includes('metro')) return 'Épicerie';
+        if (desc.includes('tim hortons')) return 'Restaurant';
+        if (desc.includes('acme job')) return 'Paie';
+        if (desc.includes('fee') || desc.includes('charge')) return 'Frais';
+        if (desc.includes('e-transfer in')) return 'Revenu';
+        
+        return 'Autre';
+    }
+    
+    // METTRE À JOUR LES OBJECTIFS
+    function updateGoals() {
+        const stats = calculateMonthlyStats();
+        
+        // Objectif 1: Éliminer déficit
+        const deficit = Math.abs(stats.deficit);
+        const saved = Math.max(0, deficit * 0.15); // Simulation 15% de progrès
+        const progress1 = deficit > 0 ? (saved / deficit * 100) : 0;
+        
+        document.getElementById('goal1Progress').style.width = `${progress1}%`;
+        document.getElementById('goal1Text').textContent = `$${saved.toFixed(2)} / $${deficit.toFixed(2)}`;
+        document.getElementById('goal1Percent').textContent = `${progress1.toFixed(0)}%`;
+        
+        // Objectif 2: Fonds urgence
+        const emergencyTarget = 500;
+        const emergencySaved = Math.max(0, window.currentBalance - 50);
+        const progress2 = (emergencySaved / emergencyTarget * 100);
+        
+        document.getElementById('goal2Progress').style.width = `${Math.min(100, progress2)}%`;
+        document.getElementById('goal2Text').textContent = `$${emergencySaved.toFixed(2)} / $${emergencyTarget}`;
+        document.getElementById('goal2Percent').textContent = `${Math.min(100, progress2).toFixed(0)}%`;
+    }
+    
+    // GÉNÉRER LES NOTIFICATIONS
+    function generateNotifications() {
+        const notifications = [];
+        
+        // Analyser les patterns
+        const atmTxs = window.allTransactions.filter(tx => 
+            tx.description.toLowerCase().includes('atm') && tx.debit
+        ).slice(0, 5);
+        
+        if (atmTxs.length >= 3) {
+            const totalATM = atmTxs.reduce((sum, tx) => sum + parseFloat(tx.debit || 0), 0);
+            notifications.push(`⚠️ Pattern détecté: ${atmTxs.length} retraits ATM récents (-$${totalATM.toFixed(2)})`);
+        }
+        
+        const stats = calculateMonthlyStats();
+        if (stats.deficit < 0) {
+            notifications.push(`💡 Opportunité: Réduire les dépenses de $${Math.abs(stats.deficit).toFixed(2)} pour équilibrer`);
+        }
+        
+        if (window.currentBalance < 100) {
+            notifications.push(`🔴 Alerte: Solde faible - Risque de frais NSF`);
+        }
+        
+        const notifHTML = notifications.map(n => `<div class="notification-item">${n}</div>`).join('');
+        document.getElementById('notifications').innerHTML = notifHTML || '<div class="notification-item">✅ Aucune alerte</div>';
+    }
+    
+    // CONFIGURER LES BOUTONS D'ACTION
+    function setupActionButtons() {
+        document.getElementById('btnConseil').onclick = () => {
+            showNotification('💡 Astuce: Évitez les retraits ATM multiples pour économiser les frais');
+        };
+        
+        document.getElementById('btnNegocier').onclick = () => {
+            openChatWithMessage("J'ai $1,100/mois en frais. Aidez-moi à négocier.");
+        };
+        
+        document.getElementById('btnBudget').onclick = () => {
+            const stats = calculateMonthlyStats();
+            openChatWithMessage(`Créez un budget avec revenus de $${stats.income.toFixed(2)}`);
+        };
+        
+        document.getElementById('btnRefresh').onclick = () => {
+            refreshAllData();
+        };
+        
+        document.getElementById('btnRapport').onclick = () => {
+            generateMonthlyReport();
+        };
+        
+        document.getElementById('btnAssistant').onclick = () => {
+            toggleChat();
+        };
+    }
+    
+    // RAFRAÎCHIR TOUTES LES DONNÉES
+    async function refreshAllData() {
+        showNotification('🔄 Actualisation...');
+        await loadFinancialData();
+        updateDashboard();
+        showNotification('✅ Données actualisées');
+    }
+    
+    // GÉNÉRER UN RAPPORT MENSUEL
+    function generateMonthlyReport() {
+        const stats = calculateMonthlyStats();
+        alert(`📊 RAPPORT MENSUEL
+        
+Solde: $${window.currentBalance.toFixed(2)}
+Revenus: $${stats.income.toFixed(2)}
+Dépenses: $${stats.expenses.toFixed(2)}
+Résultat: ${stats.deficit >= 0 ? '+' : ''}$${stats.deficit.toFixed(2)}
+
+Recommandations:
+${stats.deficit < 0 ? '- Réduire les dépenses de $' + Math.abs(stats.deficit).toFixed(2) : '- Continuer ainsi!'}
+        `);
+    }
+    
+    // INITIALISER LE CHAT
+    function initializeChat() {
+        const chatHTML = `
+            <div id="chatWidget" class="chat-widget">
+                <div class="chat-header" onclick="toggleChat()">
+                    <span class="chat-title">💬 Assistant CASHOO</span>
+                    <span class="chat-minimize">−</span>
+                </div>
+                <div class="chat-body">
+                    <div id="chatMessages" class="chat-messages">
+                        <div class="chat-message assistant">
+                            <strong>Assistant:</strong> Comment puis-je vous aider avec vos finances?
+                        </div>
+                    </div>
+                    <div class="chat-input-container">
+                        <input type="text" id="chatInput" placeholder="Tapez votre message..." 
+                               onkeypress="if(event.key==='Enter') sendChatMessage()">
+                        <button onclick="sendChatMessage()">Envoyer</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', chatHTML);
+    }
+    
+    // TOGGLE CHAT
+    function toggleChat() {
+        const widget = document.getElementById('chatWidget');
+        widget.classList.toggle('expanded');
+    }
+    
+    // OUVRIR CHAT AVEC MESSAGE
+    function openChatWithMessage(message) {
+        const widget = document.getElementById('chatWidget');
+        widget.classList.add('expanded');
+        document.getElementById('chatInput').value = message;
+        setTimeout(() => sendChatMessage(), 500);
+    }
+    
+    // ENVOYER MESSAGE CHAT
+    async function sendChatMessage() {
+        const input = document.getElementById('chatInput');
+        const message = input.value.trim();
+        if (!message) return;
+        
+        const messagesDiv = document.getElementById('chatMessages');
+        messagesDiv.innerHTML += `
+            <div class="chat-message user">
+                <strong>Vous:</strong> ${message}
+            </div>
+        `;
+        
+        input.value = '';
+        
+        try {
+            const response = await fetch('/api/claude/chat', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('cashoo_token')}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ 
+                    message: message,
+                    context: {
+                        balance: window.currentBalance,
+                        monthlyStats: window.monthlyStats,
+                        transactions: window.allTransactions.slice(0, 10)
+                    }
+                })
+            });
+            
+            const data = await response.json();
+            
+            messagesDiv.innerHTML += `
+                <div class="chat-message assistant">
+                    <strong>Assistant:</strong> ${data.response || "Je vais analyser vos données..."}
+                </div>
+            `;
+        } catch (error) {
+            const stats = calculateMonthlyStats();
+            messagesDiv.innerHTML += `
+                <div class="chat-message assistant">
+                    <strong>Assistant:</strong> Vos stats: Solde $${window.currentBalance.toFixed(2)}, Revenus $${stats.income.toFixed(2)}, Dépenses $${stats.expenses.toFixed(2)}
+                </div>
+            `;
+        }
+        
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+    
+    // NOTIFICATION TOAST
+    function showNotification(message, duration = 3000) {
+        const notif = document.createElement('div');
+        notif.className = 'toast-notification';
+        notif.textContent = message;
+        document.body.appendChild(notif);
+        
+        setTimeout(() => notif.classList.add('show'), 100);
+        
+        setTimeout(() => {
+            notif.classList.remove('show');
+            setTimeout(() => notif.remove(), 300);
+        }, duration);
+    }
+    </script>
 </body>
 </html>
