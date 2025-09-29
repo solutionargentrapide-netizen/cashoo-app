@@ -1,10 +1,11 @@
+// api/flinks/accounts.js - VERSION CORRIGÉE
 const { createClient } = require('@supabase/supabase-js');
 const jwt = require('jsonwebtoken');
 
 module.exports = async (req, res) => {
   const supabase = createClient(
-    'https://tvfqfjfkmccyrpfkkfva.supabase.co',
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2ZnFmamZrbWNjeXJwZmtrZnZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg3Mzk4NzMsImV4cCI6MjA3NDMxNTg3M30.EYjHqSSD1wnghW8yI3LJj88VUtMIxaZ_hv1-FQ8i1DA'
+    process.env.SUPABASE_URL || 'https://tvfqfjfkmccyrpfkkfva.supabase.co',
+    process.env.SUPABASE_SERVICE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2ZnFmamZrbWNjeXJwZmtrZnZhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1ODczOTg3MywiZXhwIjoyMDc0MzE1ODczfQ.z7W1bIukn4ea3JmQwSjRu1oSIGjQX_2qQduGlUoXDZk'
   );
 
   res.setHeader('Access-Control-Allow-Credentials', true);
@@ -26,7 +27,8 @@ module.exports = async (req, res) => {
       return res.status(401).json({ error: 'No token provided' });
     }
 
-    const decoded = jwt.verify(token, 'cashoo-jwt-secret-change-this-in-production');
+    // UTILISE LE MÊME SECRET QUE login.js
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'cashoo-jwt-secret-change-this-in-production-minimum-32-characters-long');
     const userId = decoded.userId;
 
     const { data, error } = await supabase
