@@ -1,19 +1,19 @@
-// api/flinks/sync.js - AVEC GESTION D'ERREUR
+// api/flinks/sync.js - VERSION CORRIGÉE
 const { createClient } = require('@supabase/supabase-js');
 const axios = require('axios');
 const jwt = require('jsonwebtoken');
 
 module.exports = async (req, res) => {
   const supabase = createClient(
-    'https://tvfqfjfkmccyrpfkkfva.supabase.co',
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2ZnFmamZrbWNjeXJwZmtrZnZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg3Mzk4NzMsImV4cCI6MjA3NDMxNTg3M30.EYjHqSSD1wnghW8yI3LJj88VUtMIxaZ_hv1-FQ8i1DA'
+    process.env.SUPABASE_URL || 'https://tvfqfjfkmccyrpfkkfva.supabase.co',
+    process.env.SUPABASE_SERVICE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2ZnFmamZrbWNjeXJwZmtrZnZhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1ODczOTg3MywiZXhwIjoyMDc0MzE1ODczfQ.z7W1bIukn4ea3JmQwSjRu1oSIGjQX_2qQduGlUoXDZk'
   );
 
   const flinksAPI = axios.create({
-    baseURL: 'https://solutionargentrapide-api.private.fin.ag/v3',
+    baseURL: process.env.FLINKS_API_DOMAIN ? `${process.env.FLINKS_API_DOMAIN}/v3` : 'https://solutionargentrapide-api.private.fin.ag/v3',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': 'ca640342-86cc-45e4-b3f9-75dbda05b0ae'
+      'x-api-key': process.env.FLINKS_X_API_KEY || 'ca640342-86cc-45e4-b3f9-75dbda05b0ae'
     },
     timeout: 30000
   });
@@ -37,7 +37,8 @@ module.exports = async (req, res) => {
       return res.status(401).json({ error: 'No token provided' });
     }
 
-    const decoded = jwt.verify(token, 'cashoo-jwt-secret-change-this-in-production');
+    // UTILISE LE MÊME SECRET QUE login.js
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'cashoo-jwt-secret-change-this-in-production-minimum-32-characters-long');
     const userId = decoded.userId;
 
     const { loginId } = req.body;
@@ -114,7 +115,7 @@ module.exports = async (req, res) => {
           id: 'tx-001',
           accountId: 'demo-001',
           amount: -45.99,
-          description: 'ÉPICERIE',
+          description: 'ÉPICERIE METRO',
           date: new Date().toISOString(),
           category: 'Food'
         },
@@ -123,8 +124,24 @@ module.exports = async (req, res) => {
           accountId: 'demo-001',
           amount: 2000.00,
           description: 'DÉPÔT SALAIRE',
-          date: new Date().toISOString(),
+          date: new Date(Date.now() - 86400000).toISOString(),
           category: 'Income'
+        },
+        {
+          id: 'tx-003',
+          accountId: 'demo-001',
+          amount: -120.00,
+          description: 'HYDRO-QUÉBEC',
+          date: new Date(Date.now() - 172800000).toISOString(),
+          category: 'Bills'
+        },
+        {
+          id: 'tx-004',
+          accountId: 'demo-002',
+          amount: 500.00,
+          description: 'TRANSFERT ÉPARGNE',
+          date: new Date(Date.now() - 259200000).toISOString(),
+          category: 'Transfer'
         }
       ];
 
@@ -144,14 +161,14 @@ module.exports = async (req, res) => {
       res.json({
         success: true,
         demo: true,
-        message: 'Environnement Flinks non disponible, données de démonstration utilisées',
+        message: 'Mode démo activé - Données de démonstration utilisées',
         data: {
           accounts: demoAccounts,
           transactions: demoTransactions,
           summary: {
             totalBalance: 17500.00,
             accountCount: 2,
-            transactionCount: 2
+            transactionCount: 4
           }
         },
         syncTime: new Date().toISOString()
