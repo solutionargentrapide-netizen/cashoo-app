@@ -1,62 +1,24 @@
 {
   "version": 2,
   "buildCommand": false,
-  "outputDirectory": ".",
+  "outputDirectory": "public",
   "cleanUrls": true,
   "trailingSlash": false,
-  "public": true,
   "framework": null,
   
   "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/", "destination": "/login.html" },
     { "source": "/login", "destination": "/login.html" },
     { "source": "/register", "destination": "/register.html" },
     { "source": "/forgot", "destination": "/forgot.html" },
     { "source": "/dashboard", "destination": "/dashboard.html" },
-    { "source": "/test", "destination": "/test.html" }
-  ],
-  
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/$1",
-      "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"],
-      "continue": false
-    },
-    {
-      "src": "/(login|register|forgot|dashboard|test)",
-      "dest": "/$1.html",
-      "status": 200
-    },
-    {
-      "src": "/(.+\\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot))",
-      "dest": "/$1",
-      "headers": { "Cache-Control": "public, max-age=31536000" }
-    }
+    { "source": "/test", "destination": "/test.html" },
+    { "source": "/(.*)", "destination": "/public/$1" }
   ],
   
   "functions": {
-    "api/auth/login.js": {
-      "maxDuration": 30,
-      "runtime": "nodejs20.x"
-    },
-    "api/auth/register.js": {
-      "maxDuration": 30,
-      "runtime": "nodejs20.x"
-    },
-    "api/auth/forgot.js": {
-      "maxDuration": 30,
-      "runtime": "nodejs20.x"
-    },
-    "api/auth/verify.js": {
-      "maxDuration": 30,
-      "runtime": "nodejs20.x"
-    },
-    "api/flinks/getJson.js": {
-      "maxDuration": 30,
-      "runtime": "nodejs20.x"
-    },
-    "api/claude/chat.js": {
+    "api/**/*.js": {
       "maxDuration": 30,
       "runtime": "nodejs20.x"
     }
@@ -74,16 +36,10 @@
       ]
     },
     {
-      "source": "/(.*).html",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=3600" },
-        { "key": "X-Content-Type-Options", "value": "nosniff" }
-      ]
-    },
-    {
       "source": "/(.*)",
       "headers": [
         { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
         { "key": "X-XSS-Protection", "value": "1; mode=block" }
       ]
     }
