@@ -1,144 +1,305 @@
-// api/auth/login.js - VERSION CORRIGÉE ET SIMPLIFIÉE
-const { createClient } = require('@supabase/supabase-js');
-const jwt = require('jsonwebtoken');
-
-module.exports = async (req, res) => {
-  // Configuration Supabase
-  const supabase = createClient(
-    process.env.SUPABASE_URL || 'https://tvfqfjfkmccyrpfkkfva.supabase.co',
-    process.env.SUPABASE_SERVICE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2ZnFmamZrbWNjeXJwZmtrZnZhIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1ODczOTg3MywiZXhwIjoyMDc0MzE1ODczfQ.z7W1bIukn4ea3JmQwSjRu1oSIGjQX_2qQduGlUoXDZk'
-  );
-
-  // CORS pour tout accepter
-  res.setHeader('Access-Control-Allow-Credentials', true);
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With, X-HTTP-Method-Override, Content-Type, Accept, Authorization');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
-    const { email, password } = req.body;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CASHOO - Login</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .login-container {
+            width: 100%;
+            max-width: 400px;
+            padding: 20px;
+        }
+        
+        .login-card {
+            background: white;
+            border-radius: 10px;
+            padding: 40px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+        
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .logo h1 {
+            color: #667eea;
+            font-size: 2.5rem;
+            font-weight: bold;
+        }
+        
+        .logo p {
+            color: #666;
+            margin-top: 10px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            transition: border 0.3s;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .btn-login {
+            width: 100%;
+            padding: 12px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .btn-login:hover {
+            background: #5a67d8;
+        }
+        
+        .btn-login:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .message {
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .message.error {
+            background: #fee;
+            color: #c00;
+            border: 1px solid #fcc;
+        }
+        
+        .message.success {
+            background: #efe;
+            color: #060;
+            border: 1px solid #cfc;
+        }
+        
+        .links {
+            text-align: center;
+            margin-top: 20px;
+        }
+        
+        .links a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        
+        .links a:hover {
+            text-decoration: underline;
+        }
+        
+        .divider {
+            text-align: center;
+            margin: 20px 0;
+            color: #999;
+            position: relative;
+        }
+        
+        .divider:before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: #ddd;
+        }
+        
+        .divider span {
+            background: white;
+            padding: 0 10px;
+            position: relative;
+        }
+        
+        .demo-info {
+            background: #f0f7ff;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .demo-info h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .demo-info p {
+            color: #555;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="logo">
+                <h1>CASHOO</h1>
+                <p>Smart Banking Dashboard</p>
+            </div>
+            
+            <div id="loginMessage"></div>
+            
+            <div class="demo-info">
+                <h3>Demo Access</h3>
+                <p>Try with any email address - no password required for demo mode</p>
+            </div>
+            
+            <form id="loginForm" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input 
+                        type="email" 
+                        id="email" 
+                        name="email" 
+                        placeholder="Enter your email"
+                        required
+                    >
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Password (Optional)</label>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password" 
+                        placeholder="Leave blank for demo"
+                    >
+                </div>
+                
+                <button type="submit" class="btn-login" id="loginBtn">
+                    Sign In
+                </button>
+            </form>
+            
+            <div class="divider">
+                <span>OR</span>
+            </div>
+            
+            <div class="links">
+                <p>New user? <a href="/register.html">Create Account</a></p>
+                <p style="margin-top: 10px">
+                    <a href="/forgot-password">Forgot Password?</a>
+                </p>
+            </div>
+        </div>
+    </div>
     
-    // Validation basique
-    if (!email) {
-      return res.status(400).json({ 
-        success: false,
-        error: 'Email requis' 
-      });
-    }
-
-    const normalizedEmail = email.toLowerCase().trim();
-    console.log('[LOGIN] Tentative pour:', normalizedEmail);
-
-    // 1. Vérifier si l'utilisateur existe
-    let { data: user, error: fetchError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', normalizedEmail)
-      .single();
-
-    // Si l'utilisateur n'existe pas, le créer automatiquement
-    if (!user || fetchError) {
-      console.log('[LOGIN] Utilisateur non trouvé, création automatique...');
-      
-      // Créer un nouvel utilisateur
-      const newUserId = 'user_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
-      
-      const { data: newUser, error: createError } = await supabase
-        .from('users')
-        .insert({
-          id: newUserId,
-          email: normalizedEmail,
-          password_hash: null, // Pas de mot de passe requis
-          email_verified: true, // Auto-vérifié
-          created_at: new Date().toISOString(),
-          last_login: new Date().toISOString()
-        })
-        .select()
-        .single();
-
-      if (createError) {
-        console.error('[LOGIN] Erreur création:', createError);
-        return res.status(500).json({ 
-          success: false,
-          error: 'Erreur de création de compte',
-          details: createError.message
-        });
-      }
-
-      user = newUser;
-      console.log('[LOGIN] Utilisateur créé avec succès:', user.id);
-    }
-
-    // 2. Mettre à jour la dernière connexion
-    await supabase
-      .from('users')
-      .update({ 
-        last_login: new Date().toISOString(),
-        failed_login_attempts: 0
-      })
-      .eq('id', user.id);
-
-    // 3. Créer le token JWT
-    const token = jwt.sign(
-      { 
-        userId: user.id, 
-        email: user.email,
-        emailVerified: true
-      },
-      process.env.JWT_SECRET || 'cashoo-jwt-secret-change-this-in-production-minimum-32-characters-long',
-      { expiresIn: '30d' } // Token valide 30 jours
-    );
-
-    // 4. Créer la session
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 30);
-
-    // Nettoyer les anciennes sessions
-    await supabase
-      .from('sessions')
-      .delete()
-      .eq('user_id', user.id);
-
-    // Créer nouvelle session
-    await supabase
-      .from('sessions')
-      .insert({
-        user_id: user.id,
-        token: token,
-        expires_at: expiresAt.toISOString(),
-        created_at: new Date().toISOString()
-      });
-
-    console.log('[LOGIN] Connexion réussie pour:', user.email);
-
-    // 5. Retourner le succès
-    return res.json({
-      success: true,
-      token: token,
-      user: { 
-        id: user.id, 
-        email: user.email,
-        emailVerified: true
-      },
-      message: user.created_at === user.last_login ? 'Compte créé et connecté!' : 'Connexion réussie!'
-    });
-
-  } catch (error) {
-    console.error('[LOGIN] Erreur générale:', error);
-    
-    // Toujours retourner une réponse valide
-    return res.status(200).json({ 
-      success: false,
-      error: 'Erreur de connexion. Veuillez réessayer.',
-      details: process.env.NODE_ENV !== 'production' ? error.message : undefined
-    });
-  }
-};
+    <script>
+        async function handleLogin(event) {
+            event.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const button = document.getElementById('loginBtn');
+            const message = document.getElementById('loginMessage');
+            
+            // Update button state
+            button.disabled = true;
+            button.textContent = 'Signing in...';
+            message.innerHTML = '';
+            
+            try {
+                const response = await fetch('/api/auth', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        action: 'login',
+                        email: email,
+                        password: password 
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Store token and user info
+                    localStorage.setItem('cashoo_token', data.token);
+                    localStorage.setItem('cashoo_user', JSON.stringify(data.user));
+                    
+                    // Show success message
+                    message.innerHTML = '<div class="message success">Login successful! Redirecting...</div>';
+                    
+                    // Redirect to dashboard
+                    setTimeout(() => {
+                        window.location.href = '/index.html';
+                    }, 1000);
+                } else {
+                    throw new Error(data.error || 'Login failed');
+                }
+            } catch (error) {
+                message.innerHTML = `<div class="message error">${error.message}</div>`;
+                button.disabled = false;
+                button.textContent = 'Sign In';
+            }
+        }
+        
+        // Check if already logged in
+        window.onload = function() {
+            const token = localStorage.getItem('cashoo_token');
+            if (token) {
+                // Verify token is still valid
+                fetch('/api/auth', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ action: 'verify' })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.valid) {
+                        window.location.href = '/index.html';
+                    }
+                });
+            }
+        };
+    </script>
+</body>
+</html>
