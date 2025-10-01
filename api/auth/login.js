@@ -17,6 +17,7 @@ module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
   res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With, X-HTTP-Method-Override, Content-Type, Accept, Authorization');
+  res.setHeader('Content-Type', 'application/json');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -105,19 +106,6 @@ module.exports = async (req, res) => {
         failed_login_attempts: 0
       })
       .eq('id', user.id);
-
-    // Create session
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
-
-    await supabase
-      .from('sessions')
-      .insert({
-        user_id: user.id,
-        token: token,
-        expires_at: expiresAt.toISOString(),
-        created_at: new Date().toISOString()
-      });
 
     console.log('[LOGIN] Success for:', user.email);
 
