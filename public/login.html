@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CASHOO - Login</title>
+    <title>CASHOO - Create Account</title>
     <link rel="stylesheet" href="/css/style.css">
     <style>
         * {
@@ -21,13 +21,13 @@
             justify-content: center;
         }
         
-        .login-container {
+        .register-container {
             width: 100%;
             max-width: 400px;
             padding: 20px;
         }
         
-        .login-card {
+        .register-card {
             background: white;
             border-radius: 10px;
             padding: 40px;
@@ -75,7 +75,16 @@
             border-color: #667eea;
         }
         
-        .btn-login {
+        .password-strength {
+            margin-top: 5px;
+            font-size: 12px;
+        }
+        
+        .strength-weak { color: #dc3545; }
+        .strength-medium { color: #ffc107; }
+        .strength-strong { color: #28a745; }
+        
+        .btn-register {
             width: 100%;
             padding: 12px;
             background: #667eea;
@@ -88,11 +97,11 @@
             transition: background 0.3s;
         }
         
-        .btn-login:hover {
+        .btn-register:hover {
             background: #5a67d8;
         }
         
-        .btn-login:disabled {
+        .btn-register:disabled {
             background: #ccc;
             cursor: not-allowed;
         }
@@ -130,30 +139,21 @@
             text-decoration: underline;
         }
         
-        .divider {
-            text-align: center;
+        .terms {
             margin: 20px 0;
-            color: #999;
-            position: relative;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            font-size: 14px;
+            color: #666;
         }
         
-        .divider:before {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 0;
-            right: 0;
-            height: 1px;
-            background: #ddd;
+        .terms input {
+            width: auto;
+            margin-right: 8px;
         }
         
-        .divider span {
-            background: white;
-            padding: 0 10px;
-            position: relative;
-        }
-        
-        .demo-info {
+        .features {
             background: #f0f7ff;
             padding: 15px;
             border-radius: 5px;
@@ -161,34 +161,50 @@
             border-left: 4px solid #667eea;
         }
         
-        .demo-info h3 {
+        .features h3 {
             color: #667eea;
             margin-bottom: 10px;
         }
         
-        .demo-info p {
+        .features ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .features li {
+            padding: 5px 0;
             color: #555;
             font-size: 14px;
-            line-height: 1.5;
+        }
+        
+        .features li:before {
+            content: "✓ ";
+            color: #667eea;
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
-    <div class="login-container">
-        <div class="login-card">
+    <div class="register-container">
+        <div class="register-card">
             <div class="logo">
                 <h1>CASHOO</h1>
-                <p>Smart Banking Dashboard</p>
+                <p>Create Your Account</p>
             </div>
             
-            <div id="loginMessage"></div>
+            <div id="registerMessage"></div>
             
-            <div class="demo-info">
-                <h3>Demo Access</h3>
-                <p>Try with any email address - no password required for demo mode</p>
+            <div class="features">
+                <h3>Get Started With:</h3>
+                <ul>
+                    <li>Real-time balance tracking</li>
+                    <li>Smart expense analysis</li>
+                    <li>AI-powered insights</li>
+                    <li>Bank-level security</li>
+                </ul>
             </div>
             
-            <form id="loginForm" onsubmit="handleLogin(event)">
+            <form id="registerForm" onsubmit="handleRegister(event)">
                 <div class="form-group">
                     <label for="email">Email Address</label>
                     <input 
@@ -201,45 +217,105 @@
                 </div>
                 
                 <div class="form-group">
-                    <label for="password">Password (Optional)</label>
+                    <label for="password">Password</label>
                     <input 
                         type="password" 
                         id="password" 
                         name="password" 
-                        placeholder="Leave blank for demo"
+                        placeholder="Create a strong password"
+                        minlength="8"
+                        required
+                        onkeyup="checkPasswordStrength(this.value)"
+                    >
+                    <div id="passwordStrength" class="password-strength"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="confirmPassword">Confirm Password</label>
+                    <input 
+                        type="password" 
+                        id="confirmPassword" 
+                        name="confirmPassword" 
+                        placeholder="Confirm your password"
+                        required
                     >
                 </div>
                 
-                <button type="submit" class="btn-login" id="loginBtn">
-                    Sign In
+                <div class="terms">
+                    <label>
+                        <input type="checkbox" id="agreeTerms" required>
+                        I agree to the <a href="/terms" target="_blank">Terms of Service</a> and 
+                        <a href="/privacy" target="_blank">Privacy Policy</a>
+                    </label>
+                </div>
+                
+                <button type="submit" class="btn-register" id="registerBtn">
+                    Create Account
                 </button>
             </form>
             
-            <div class="divider">
-                <span>OR</span>
-            </div>
-            
             <div class="links">
-                <p>New user? <a href="/register.html">Create Account</a></p>
-                <p style="margin-top: 10px">
-                    <a href="/forgot-password">Forgot Password?</a>
-                </p>
+                <p>Already have an account? <a href="/login.html">Sign In</a></p>
             </div>
         </div>
     </div>
     
     <script>
-        async function handleLogin(event) {
+        function checkPasswordStrength(password) {
+            const strength = document.getElementById('passwordStrength');
+            
+            if (password.length === 0) {
+                strength.innerHTML = '';
+                return;
+            }
+            
+            let score = 0;
+            
+            // Length check
+            if (password.length >= 8) score++;
+            if (password.length >= 12) score++;
+            
+            // Complexity checks
+            if (/[a-z]/.test(password)) score++;
+            if (/[A-Z]/.test(password)) score++;
+            if (/[0-9]/.test(password)) score++;
+            if (/[^a-zA-Z0-9]/.test(password)) score++;
+            
+            if (score <= 2) {
+                strength.innerHTML = '<span class="strength-weak">Weak password</span>';
+            } else if (score <= 4) {
+                strength.innerHTML = '<span class="strength-medium">Medium strength</span>';
+            } else {
+                strength.innerHTML = '<span class="strength-strong">Strong password</span>';
+            }
+        }
+        
+        async function handleRegister(event) {
             event.preventDefault();
             
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
-            const button = document.getElementById('loginBtn');
-            const message = document.getElementById('loginMessage');
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const agreeTerms = document.getElementById('agreeTerms').checked;
+            
+            const button = document.getElementById('registerBtn');
+            const message = document.getElementById('registerMessage');
+            
+            // Validate passwords match
+            if (password !== confirmPassword) {
+                message.innerHTML = '<div class="message error">Passwords do not match</div>';
+                return;
+            }
+            
+            // Validate terms accepted
+            if (!agreeTerms) {
+                message.innerHTML = '<div class="message error">Please accept the terms and conditions</div>';
+                return;
+            }
             
             // Update button state
             button.disabled = true;
-            button.textContent = 'Signing in...';
+            button.textContent = 'Creating account...';
             message.innerHTML = '';
             
             try {
@@ -249,7 +325,7 @@
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ 
-                        action: 'login',
+                        action: 'register',
                         email: email,
                         password: password 
                     })
@@ -263,19 +339,19 @@
                     localStorage.setItem('cashoo_user', JSON.stringify(data.user));
                     
                     // Show success message
-                    message.innerHTML = '<div class="message success">Login successful! Redirecting...</div>';
+                    message.innerHTML = '<div class="message success">Account created successfully! Redirecting...</div>';
                     
                     // Redirect to dashboard
                     setTimeout(() => {
                         window.location.href = '/index.html';
-                    }, 1000);
+                    }, 2000);
                 } else {
-                    throw new Error(data.error || 'Login failed');
+                    throw new Error(data.error || 'Registration failed');
                 }
             } catch (error) {
                 message.innerHTML = `<div class="message error">${error.message}</div>`;
                 button.disabled = false;
-                button.textContent = 'Sign In';
+                button.textContent = 'Create Account';
             }
         }
         
@@ -283,21 +359,7 @@
         window.onload = function() {
             const token = localStorage.getItem('cashoo_token');
             if (token) {
-                // Verify token is still valid
-                fetch('/api/auth', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ action: 'verify' })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.valid) {
-                        window.location.href = '/index.html';
-                    }
-                });
+                window.location.href = '/index.html';
             }
         };
     </script>
