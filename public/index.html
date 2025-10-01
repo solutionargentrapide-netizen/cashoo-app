@@ -1,20 +1,11 @@
-à<!DOCTYPE html>
-<html lang="fr">
+<!DOCTYPE html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CASHOO - Dashboard Financier Intelligent</title>
+    <title>CASHOO - Login</title>
+    <link rel="stylesheet" href="/css/style.css">
     <style>
-        /* Variables CSS */
-        :root {
-            --primary: #667eea;
-            --danger: #ef4444;
-            --warning: #f59e0b;
-            --success: #10b981;
-            --dark: #1f2937;
-            --light: #f3f4f6;
-        }
-        
         * {
             margin: 0;
             padding: 0;
@@ -22,1265 +13,293 @@
         }
         
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-        }
-        
-        .dashboard-container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        
-        /* HEADER ALERTS */
-        .alert-bar {
-            background: white;
-            border-radius: 10px;
-            padding: 15px 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        
-        .alert-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 15px;
-        }
-        
-        .alert-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 10px;
-            border-radius: 5px;
-            font-size: 14px;
-        }
-        
-        .alert-urgent {
-            background: #fee;
-            border-left: 4px solid var(--danger);
-            color: var(--danger);
-        }
-        
-        .alert-warning {
-            background: #fef3c7;
-            border-left: 4px solid var(--warning);
-            color: #92400e;
-        }
-        
-        .alert-info {
-            background: #dbeafe;
-            border-left: 4px solid var(--primary);
-            color: #1e3a8a;
-        }
-        
-        /* MAIN CARDS */
-        .main-cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 20px;
-            margin-bottom: 20px;
-        }
-        
-        .stat-card {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-        
-        .card-title {
-            font-size: 14px;
-            color: #6b7280;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        
-        .card-icon {
-            font-size: 24px;
-        }
-        
-        .card-value {
-            font-size: 32px;
-            font-weight: bold;
-            color: var(--dark);
-            margin-bottom: 10px;
-        }
-        
-        .card-change {
-            font-size: 14px;
-            color: #6b7280;
-        }
-        
-        .positive { color: var(--success); }
-        .negative { color: var(--danger); }
-        
-        .card-footer {
-            margin-top: 15px;
-            padding-top: 15px;
-            border-top: 1px solid #e5e7eb;
-        }
-        
-        .card-details div {
-            padding: 4px 0;
-            font-size: 14px;
-        }
-        
-        .progress-bar {
-            height: 8px;
-            background: #e5e7eb;
-            border-radius: 4px;
-            overflow: hidden;
-            margin: 10px 0;
-        }
-        
-        .progress-fill {
-            height: 100%;
-            transition: width 0.3s ease;
-        }
-        
-        .progress-danger { background: var(--danger); }
-        .progress-warning { background: var(--warning); }
-        .progress-success { background: var(--success); }
-        
-        /* ANALYSE SECTION */
-        .analysis-section {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-bottom: 20px;
-        }
-        
-        .analysis-card {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        
-        .section-title {
-            font-size: 18px;
-            font-weight: 600;
-            margin-bottom: 15px;
-            color: var(--dark);
-        }
-        
-        /* Category Chart */
-        .category-list {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-        
-        .category-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 8px;
-            background: #f9fafb;
-            border-radius: 5px;
-        }
-        
-        .category-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-        }
-        
-        .category-name {
-            flex: 1;
-            font-size: 14px;
-        }
-        
-        .category-amount {
-            font-weight: 600;
-        }
-        
-        .category-percent {
-            font-size: 12px;
-            color: #6b7280;
-        }
-        
-        /* Transactions Timeline */
-        .transaction-timeline {
-            max-height: 300px;
-            overflow-y: auto;
-        }
-        
-        .transaction-row {
-            display: grid;
-            grid-template-columns: 120px 1fr 100px 80px;
-            gap: 10px;
-            padding: 10px;
-            border-bottom: 1px solid #e5e7eb;
-            font-size: 14px;
-        }
-        
-        .tx-time {
-            color: #6b7280;
-        }
-        
-        .tx-desc {
-            font-weight: 500;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        
-        .tx-amount.credit {
-            color: var(--success);
-            font-weight: 600;
-        }
-        
-        .tx-amount.debit {
-            color: var(--danger);
-            font-weight: 600;
-        }
-        
-        .tx-category {
-            color: #9ca3af;
-            font-size: 12px;
-        }
-        
-        /* ACTION BUTTONS */
-        .actions-section {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        
-        .action-buttons {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 10px;
-        }
-        
-        .action-btn {
-            padding: 12px 20px;
-            background: var(--primary);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            transition: all 0.3s;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
         }
         
-        .action-btn:hover {
-            background: #5a67d8;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        .login-container {
+            width: 100%;
+            max-width: 400px;
+            padding: 20px;
         }
         
-        /* SIDEBAR GOALS */
-        .sidebar-section {
+        .login-card {
             background: white;
             border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 40px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
         }
         
-        .goal-item {
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .logo h1 {
+            color: #667eea;
+            font-size: 2.5rem;
+            font-weight: bold;
+        }
+        
+        .logo p {
+            color: #666;
+            margin-top: 10px;
+        }
+        
+        .form-group {
             margin-bottom: 20px;
         }
         
-        .goal-header {
-            display: flex;
-            justify-content: space-between;
+        label {
+            display: block;
             margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
         }
         
-        .goal-title {
-            font-weight: 600;
-            font-size: 14px;
-        }
-        
-        .goal-stats {
-            display: flex;
-            justify-content: space-between;
-            font-size: 12px;
-            color: #6b7280;
-            margin-bottom: 5px;
-        }
-        
-        /* NOTIFICATIONS */
-        .notifications-section {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        
-        .notification-item {
-            padding: 10px;
-            background: #f9fafb;
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
             border-radius: 5px;
-            margin-bottom: 10px;
-            font-size: 14px;
+            font-size: 16px;
+            transition: border 0.3s;
         }
         
-        .next-payments {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
+        input:focus {
+            outline: none;
+            border-color: #667eea;
         }
         
-        .payment-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px;
-            background: #f9fafb;
-            border-radius: 5px;
-            font-size: 14px;
-        }
-        
-        .payment-date {
-            color: #6b7280;
-            font-size: 12px;
-        }
-        
-        .payment-amount {
-            font-weight: 600;
-            color: var(--danger);
-        }
-        
-        /* CHAT WIDGET */
-        .chat-widget {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            width: 350px;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-            z-index: 1000;
-            transition: all 0.3s;
-        }
-        
-        .chat-widget:not(.expanded) .chat-body {
-            display: none;
-        }
-        
-        .chat-header {
-            background: var(--primary);
-            color: white;
-            padding: 15px;
-            border-radius: 10px 10px 0 0;
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .chat-body {
-            padding: 15px;
-            max-height: 400px;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .chat-messages {
-            flex: 1;
-            overflow-y: auto;
-            margin-bottom: 15px;
-            min-height: 250px;
-        }
-        
-        .chat-message {
-            margin-bottom: 10px;
-            padding: 10px;
-            background: #f3f4f6;
-            border-radius: 5px;
-            font-size: 14px;
-        }
-        
-        .chat-message.user {
-            background: #dbeafe;
-            margin-left: 20px;
-        }
-        
-        .chat-message.assistant {
-            background: #f3f4f6;
-            margin-right: 20px;
-        }
-        
-        .chat-input-container {
-            display: flex;
-            gap: 10px;
-        }
-        
-        #chatInput {
-            flex: 1;
-            padding: 10px;
-            border: 1px solid #e5e7eb;
-            border-radius: 5px;
-        }
-        
-        .chat-input-container button {
-            padding: 10px 20px;
-            background: var(--primary);
+        .btn-login {
+            width: 100%;
+            padding: 12px;
+            background: #667eea;
             color: white;
             border: none;
             border-radius: 5px;
+            font-size: 16px;
+            font-weight: 600;
             cursor: pointer;
+            transition: background 0.3s;
         }
         
-        /* TOAST NOTIFICATIONS */
-        .toast-notification {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: var(--dark);
-            color: white;
-            padding: 15px 20px;
+        .btn-login:hover {
+            background: #5a67d8;
+        }
+        
+        .btn-login:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .message {
+            padding: 10px;
             border-radius: 5px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            transform: translateX(400px);
-            transition: transform 0.3s;
-            z-index: 2000;
+            margin-bottom: 20px;
+            text-align: center;
         }
         
-        .toast-notification.show {
-            transform: translateX(0);
+        .message.error {
+            background: #fee;
+            color: #c00;
+            border: 1px solid #fcc;
         }
         
-        /* RESPONSIVE */
-        @media (max-width: 1024px) {
-            .analysis-section {
-                grid-template-columns: 1fr;
-            }
+        .message.success {
+            background: #efe;
+            color: #060;
+            border: 1px solid #cfc;
         }
         
-        @media (max-width: 768px) {
-            .dashboard-container {
-                padding: 10px;
-            }
-            
-            .main-cards {
-                grid-template-columns: 1fr;
-            }
-            
-            .action-buttons {
-                grid-template-columns: 1fr;
-            }
-            
-            .chat-widget {
-                width: 100%;
-                right: 0;
-                left: 0;
-                bottom: 0;
-                border-radius: 10px 10px 0 0;
-            }
-            
-            .transaction-row {
-                grid-template-columns: 1fr;
-                gap: 5px;
-            }
+        .links {
+            text-align: center;
+            margin-top: 20px;
+        }
+        
+        .links a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        
+        .links a:hover {
+            text-decoration: underline;
+        }
+        
+        .divider {
+            text-align: center;
+            margin: 20px 0;
+            color: #999;
+            position: relative;
+        }
+        
+        .divider:before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: #ddd;
+        }
+        
+        .divider span {
+            background: white;
+            padding: 0 10px;
+            position: relative;
+        }
+        
+        .demo-info {
+            background: #f0f7ff;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .demo-info h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .demo-info p {
+            color: #555;
+            font-size: 14px;
+            line-height: 1.5;
         }
     </style>
 </head>
 <body>
-    <div class="dashboard-container">
-        <!-- SECTION 1: BARRE D'ALERTES -->
-        <div class="alert-bar">
-            <div class="alert-grid" id="alertsContainer">
-                <div class="alert-item alert-info">
-                    <span>📅</span>
-                    <span>Chargement des alertes...</span>
-                </div>
-            </div>
-        </div>
-        
-        <!-- SECTION 2: CARTES PRINCIPALES -->
-        <div class="main-cards">
-            <!-- Carte Solde -->
-            <div class="stat-card">
-                <div class="card-header">
-                    <span class="card-title">SOLDE EN TEMPS RÉEL</span>
-                    <span class="card-icon">💰</span>
-                </div>
-                <div class="card-value" id="currentBalance">$0.00</div>
-                <div class="card-change" id="balanceChange">↓ $0 aujourd'hui</div>
-                <div class="card-footer">
-                    <small>Projection fin de mois: <span id="monthEndProjection">$0</span></small>
-                    <div class="progress-bar">
-                        <div class="progress-fill progress-danger" id="balanceProgress" style="width: 20%"></div>
-                    </div>
-                </div>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="logo">
+                <h1>CASHOO</h1>
+                <p>Smart Banking Dashboard</p>
             </div>
             
-            <!-- Carte Flux Mensuel -->
-            <div class="stat-card">
-                <div class="card-header">
-                    <span class="card-title">FLUX MENSUEL</span>
-                    <span class="card-icon">📊</span>
-                </div>
-                <div class="card-value" id="monthlyFlow">-$0</div>
-                <div class="card-details">
-                    <div>Revenus: <span id="monthlyIncome" class="positive">$0</span></div>
-                    <div>Dépenses: <span id="monthlyExpenses" class="negative">$0</span></div>
-                    <div>Déficit: <span id="monthlyDeficit" class="negative">$0</span></div>
-                </div>
-                <div class="progress-bar">
-                    <div class="progress-fill progress-warning" id="spendingProgress" style="width: 110%"></div>
-                </div>
+            <div id="loginMessage"></div>
+            
+            <div class="demo-info">
+                <h3>Demo Access</h3>
+                <p>Try with any email address - no password required for demo mode</p>
             </div>
             
-            <!-- Carte Frais à Éliminer -->
-            <div class="stat-card">
-                <div class="card-header">
-                    <span class="card-title">FRAIS À ÉLIMINER</span>
-                    <span class="card-icon">🔥</span>
+            <form id="loginForm" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input 
+                        type="email" 
+                        id="email" 
+                        name="email" 
+                        placeholder="Enter your email"
+                        required
+                    >
                 </div>
-                <div class="card-value" id="totalFees">$0/mois</div>
-                <div class="card-details" id="feesBreakdown">
-                    <div>Prêts payday: <span class="negative">$0</span></div>
-                    <div>Faillite: <span class="negative">$0</span></div>
-                    <div>Frais bancaires: <span class="negative">$0</span></div>
+                
+                <div class="form-group">
+                    <label for="password">Password (Optional)</label>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password" 
+                        placeholder="Leave blank for demo"
+                    >
                 </div>
-                <button class="action-btn" onclick="openChatWithMessage('Comment éliminer ces frais?')">
-                    Plan de sortie →
+                
+                <button type="submit" class="btn-login" id="loginBtn">
+                    Sign In
                 </button>
+            </form>
+            
+            <div class="divider">
+                <span>OR</span>
             </div>
             
-            <!-- Carte Prochains Paiements -->
-            <div class="stat-card">
-                <div class="card-header">
-                    <span class="card-title">PROCHAINS PAIEMENTS</span>
-                    <span class="card-icon">📅</span>
-                </div>
-                <div class="next-payments" id="nextPayments">
-                    <div class="payment-item">
-                        <span>Chargement...</span>
-                    </div>
-                </div>
-                <div class="card-footer">
-                    <small>Total sur 7 jours: <span id="weekTotal">$0</span></small>
-                </div>
-            </div>
-        </div>
-        
-        <!-- SECTION 3: ANALYSE -->
-        <div class="analysis-section">
-            <!-- Graphique des catégories -->
-            <div class="analysis-card">
-                <h3 class="section-title">📊 Dépenses par Catégorie</h3>
-                <div id="categoryChart">
-                    <div class="category-list">
-                        <div class="category-item">
-                            <span class="category-dot" style="background: #ef4444"></span>
-                            <span class="category-name">Chargement...</span>
-                            <span class="category-amount">$0</span>
-                            <span class="category-percent">0%</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Timeline des transactions -->
-            <div class="analysis-card">
-                <h3 class="section-title">📝 Transactions Récentes</h3>
-                <div class="transaction-timeline" id="transactionTimeline">
-                    <div class="transaction-row">
-                        <div class="tx-time">Chargement...</div>
-                        <div class="tx-desc">Chargement des transactions...</div>
-                        <div class="tx-amount">$0</div>
-                        <div class="tx-category">[...]</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- SECTION 4: ACTIONS RAPIDES -->
-        <div class="actions-section">
-            <h3 class="section-title">⚡ Actions Rapides</h3>
-            <div class="action-buttons">
-                <button class="action-btn" id="btnConseil">💡 Conseil du jour</button>
-                <button class="action-btn" id="btnNegocier">📞 Négocier frais</button>
-                <button class="action-btn" id="btnBudget">💰 Plan budget</button>
-                <button class="action-btn" id="btnRefresh">🔄 Rafraîchir</button>
-                <button class="action-btn" id="btnRapport">📊 Rapport mois</button>
-                <button class="action-btn" id="btnAssistant">💬 Assistant AI</button>
-            </div>
-        </div>
-        
-        <!-- SECTION 5: OBJECTIFS -->
-        <div class="sidebar-section">
-            <h3 class="section-title">🎯 Objectifs & Progrès</h3>
-            
-            <!-- Objectif 1 -->
-            <div class="goal-item">
-                <div class="goal-header">
-                    <span class="goal-title">Éliminer le déficit</span>
-                    <span id="goal1Percent">0%</span>
-                </div>
-                <div class="goal-stats">
-                    <span id="goal1Text">$0 / $284</span>
-                    <span>30 jours restants</span>
-                </div>
-                <div class="progress-bar">
-                    <div class="progress-fill progress-warning" id="goal1Progress" style="width: 0%"></div>
-                </div>
-            </div>
-            
-            <!-- Objectif 2 -->
-            <div class="goal-item">
-                <div class="goal-header">
-                    <span class="goal-title">Fonds d'urgence</span>
-                    <span id="goal2Percent">0%</span>
-                </div>
-                <div class="goal-stats">
-                    <span id="goal2Text">$0 / $500</span>
-                    <span>[Configurer virement]</span>
-                </div>
-                <div class="progress-bar">
-                    <div class="progress-fill progress-success" id="goal2Progress" style="width: 0%"></div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- SECTION 6: NOTIFICATIONS -->
-        <div class="notifications-section">
-            <h3 class="section-title">🔔 Notifications & Alertes</h3>
-            <div id="notifications">
-                <div class="notification-item">✅ Aucune alerte pour le moment</div>
+            <div class="links">
+                <p>New user? <a href="/register.html">Create Account</a></p>
+                <p style="margin-top: 10px">
+                    <a href="/forgot-password">Forgot Password?</a>
+                </p>
             </div>
         </div>
     </div>
     
-    <!-- JAVASCRIPT COMPLET -->
-    <script src="/js/app.js"></script>
     <script>
-    // Variables globales
-    window.currentBalance = 0;
-    window.allTransactions = [];
-    window.monthlyStats = { income: 0, expenses: 0, deficit: 0 };
-    
-    // INITIALISATION AU CHARGEMENT
-    window.addEventListener('DOMContentLoaded', () => {
-        console.log('🚀 CASHOO Dashboard 3.0 - Initialisation');
-        
-        // Vérifier l'authentification
-        const token = localStorage.getItem('cashoo_token');
-        if (!token) {
-            console.log('❌ Pas de token, redirection vers login');
-            window.location.href = '/login.html';
-            return;
-        }
-        
-        console.log('✅ Token trouvé, initialisation du dashboard');
-        
-        // Initialiser les composants
-        initializeDashboard();
-        initializeChat();
-        
-        // Démarrer les mises à jour automatiques
-        setInterval(updateAlerts, 60000); // Chaque minute
-        setInterval(refreshAllData, 300000); // Chaque 5 minutes
-    });
-    
-    // INITIALISER LE DASHBOARD
-    async function initializeDashboard() {
-        console.log('📊 Chargement des données financières...');
-        
-        // Charger les données
-        await loadFinancialData();
-        
-        // Mettre à jour tous les composants
-        updateDashboard();
-        
-        // Configurer les boutons
-        setupActionButtons();
-    }
-    
-    // CHARGER LES DONNÉES FINANCIÈRES
-    async function loadFinancialData() {
-        try {
-            const token = localStorage.getItem('cashoo_token');
+        async function handleLogin(event) {
+            event.preventDefault();
             
-            // Charger les données Inverite
-            const response = await fetch('/api/inverite/fetch', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ 
-                    guid: localStorage.getItem('inverite_guid') || '339703B7-9B97-4FDC-8727-D04357A08DAD' 
-                })
-            });
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const button = document.getElementById('loginBtn');
+            const message = document.getElementById('loginMessage');
             
-            const data = await response.json();
-            console.log('📈 Données reçues:', data);
+            // Update button state
+            button.disabled = true;
+            button.textContent = 'Signing in...';
+            message.innerHTML = '';
             
-            if (data.success) {
-                window.currentBalance = data.accounts[0]?.balance || 0;
-                window.allTransactions = data.transactions || [];
-                
-                // Si le solde est 0, essayer de le récupérer depuis les transactions
-                if (window.currentBalance === 0 && window.allTransactions.length > 0) {
-                    const firstTxWithBalance = window.allTransactions.find(tx => tx.balance > 0);
-                    if (firstTxWithBalance) {
-                        window.currentBalance = parseFloat(firstTxWithBalance.balance);
-                    }
-                }
-                
-                console.log(`✅ Solde: $${window.currentBalance}, Transactions: ${window.allTransactions.length}`);
-            }
-        } catch (error) {
-            console.error('❌ Erreur chargement:', error);
-            // Données de démonstration
-            window.currentBalance = 92.53;
-            showNotification('⚠️ Mode démo activé');
-        }
-    }
-    
-    // METTRE À JOUR LE DASHBOARD
-    function updateDashboard() {
-        updateAlerts();
-        updateMainCards();
-        updateTransactionTimeline();
-        generateCategoryChart();
-        updateGoals();
-        generateNotifications();
-    }
-    
-    // METTRE À JOUR LES ALERTES
-    function updateAlerts() {
-        const alerts = [];
-        
-        // Calculer les stats mensuelles
-        const stats = calculateMonthlyStats();
-        
-        // Alerte déficit
-        if (stats.deficit < 0) {
-            alerts.push({
-                type: 'warning',
-                icon: '⚠️',
-                text: `Déficit mensuel: -$${Math.abs(stats.deficit).toFixed(2)} (Action requise)`
-            });
-        }
-        
-        // Alerte solde faible
-        if (window.currentBalance < 100) {
-            alerts.push({
-                type: 'urgent',
-                icon: '🚨',
-                text: `ALERTE: Solde faible ($${window.currentBalance.toFixed(2)}) - Risque de NSF`
-            });
-        }
-        
-        // Prochaine paie
-        const nextPay = calculateNextPayday();
-        if (nextPay) {
-            const daysUntil = Math.floor((nextPay.date - new Date()) / (1000 * 60 * 60 * 24));
-            alerts.push({
-                type: 'info',
-                icon: '📅',
-                text: `Prochaine paie: ${nextPay.date.toLocaleDateString('fr-CA')} (${daysUntil} jours) - ~$${nextPay.amount.toFixed(2)}`
-            });
-        }
-        
-        // Afficher les alertes
-        const alertsHTML = alerts.map(alert => `
-            <div class="alert-item alert-${alert.type}">
-                <span>${alert.icon}</span>
-                <span>${alert.text}</span>
-            </div>
-        `).join('');
-        
-        document.getElementById('alertsContainer').innerHTML = alertsHTML || '<div class="alert-item">✅ Aucune alerte</div>';
-    }
-    
-    // CALCULER LES STATISTIQUES MENSUELLES
-    function calculateMonthlyStats() {
-        let income = 0;
-        let expenses = 0;
-        
-        window.allTransactions.forEach(tx => {
-            if (tx.credit) income += parseFloat(tx.credit);
-            if (tx.debit) expenses += parseFloat(tx.debit);
-        });
-        
-        window.monthlyStats = {
-            income: income,
-            expenses: expenses,
-            deficit: income - expenses
-        };
-        
-        return window.monthlyStats;
-    }
-    
-    // CALCULER LA PROCHAINE DATE DE PAIE
-    function calculateNextPayday() {
-        const payTxs = window.allTransactions.filter(tx => 
-            tx.description && tx.description.toLowerCase().includes('acme') && tx.credit
-        );
-        
-        if (payTxs.length < 2) return null;
-        
-        const lastPay = new Date(payTxs[0].date);
-        const nextPay = new Date(lastPay);
-        nextPay.setDate(nextPay.getDate() + 14); // Bi-hebdomadaire
-        
-        const avgAmount = payTxs.slice(0, 3).reduce((sum, tx) => sum + parseFloat(tx.credit), 0) / Math.min(3, payTxs.length);
-        
-        return { date: nextPay, amount: avgAmount };
-    }
-    
-    // METTRE À JOUR LES CARTES PRINCIPALES
-    function updateMainCards() {
-        const stats = calculateMonthlyStats();
-        
-        // Carte Solde
-        document.getElementById('currentBalance').textContent = `$${window.currentBalance.toFixed(2)}`;
-        
-        // Changement du jour
-        let todayChange = 0;
-        const today = new Date().toDateString();
-        window.allTransactions.forEach(tx => {
-            if (new Date(tx.date).toDateString() === today) {
-                if (tx.credit) todayChange += parseFloat(tx.credit);
-                if (tx.debit) todayChange -= parseFloat(tx.debit);
-            }
-        });
-        
-        document.getElementById('balanceChange').textContent = `${todayChange >= 0 ? '↑' : '↓'} $${Math.abs(todayChange).toFixed(2)} aujourd'hui`;
-        document.getElementById('balanceChange').className = todayChange >= 0 ? 'card-change positive' : 'card-change negative';
-        
-        // Projection fin de mois
-        const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
-        const daysPassed = new Date().getDate();
-        const dailyBurn = stats.expenses / daysPassed;
-        const projection = window.currentBalance - (dailyBurn * (daysInMonth - daysPassed));
-        
-        document.getElementById('monthEndProjection').textContent = `$${projection.toFixed(2)}`;
-        document.getElementById('monthEndProjection').className = projection >= 0 ? 'positive' : 'negative';
-        
-        // Carte Flux Mensuel
-        document.getElementById('monthlyFlow').textContent = stats.deficit >= 0 ? `+$${stats.deficit.toFixed(2)}` : `-$${Math.abs(stats.deficit).toFixed(2)}`;
-        document.getElementById('monthlyIncome').textContent = `$${stats.income.toFixed(2)}`;
-        document.getElementById('monthlyExpenses').textContent = `$${stats.expenses.toFixed(2)}`;
-        document.getElementById('monthlyDeficit').textContent = stats.deficit >= 0 ? `+$${stats.deficit.toFixed(2)}` : `-$${Math.abs(stats.deficit).toFixed(2)}`;
-        document.getElementById('monthlyDeficit').className = stats.deficit >= 0 ? 'positive' : 'negative';
-        
-        // Progress bar
-        const spendingRatio = (stats.expenses / stats.income * 100) || 0;
-        document.getElementById('spendingProgress').style.width = `${Math.min(100, spendingRatio)}%`;
-        
-        // Carte Frais
-        let paydayFees = 0, bankruptcyFees = 0, bankFees = 0;
-        
-        window.allTransactions.forEach(tx => {
-            if (tx.debit) {
-                const desc = tx.description.toLowerCase();
-                if (desc.includes('cash max') || desc.includes('lender')) {
-                    paydayFees += parseFloat(tx.debit);
-                } else if (desc.includes('bdo') || desc.includes('farber')) {
-                    bankruptcyFees += parseFloat(tx.debit);
-                } else if (desc.includes('fee') || desc.includes('charge')) {
-                    bankFees += parseFloat(tx.debit);
-                }
-            }
-        });
-        
-        const totalFees = paydayFees + bankruptcyFees + bankFees;
-        document.getElementById('totalFees').textContent = `$${totalFees.toFixed(2)}/mois`;
-        document.getElementById('feesBreakdown').innerHTML = `
-            <div>Prêts payday: <span class="negative">$${paydayFees.toFixed(2)}</span></div>
-            <div>Faillite: <span class="negative">$${bankruptcyFees.toFixed(2)}</span></div>
-            <div>Frais bancaires: <span class="negative">$${bankFees.toFixed(2)}</span></div>
-        `;
-        
-        // Prochains paiements
-        updateNextPayments();
-    }
-    
-    // METTRE À JOUR LES PROCHAINS PAIEMENTS
-    function updateNextPayments() {
-        const recurring = detectRecurringPayments();
-        const next7Days = recurring
-            .filter(p => {
-                const daysUntil = Math.floor((p.nextDate - new Date()) / (1000 * 60 * 60 * 24));
-                return daysUntil >= 0 && daysUntil <= 7;
-            })
-            .sort((a, b) => a.nextDate - b.nextDate)
-            .slice(0, 5);
-        
-        let weekTotal = 0;
-        const paymentsHTML = next7Days.map(payment => {
-            weekTotal += payment.amount;
-            const daysUntil = Math.floor((payment.nextDate - new Date()) / (1000 * 60 * 60 * 24));
-            return `
-                <div class="payment-item">
-                    <div>
-                        <div>${payment.description}</div>
-                        <div class="payment-date">${daysUntil === 0 ? 'Aujourd\'hui' : daysUntil === 1 ? 'Demain' : `Dans ${daysUntil} jours`}</div>
-                    </div>
-                    <span class="payment-amount">-$${payment.amount.toFixed(2)}</span>
-                </div>
-            `;
-        }).join('');
-        
-        document.getElementById('nextPayments').innerHTML = paymentsHTML || '<div class="payment-item"><span>Aucun paiement prévu</span></div>';
-        document.getElementById('weekTotal').textContent = `$${weekTotal.toFixed(2)}`;
-    }
-    
-    // DÉTECTER LES PAIEMENTS RÉCURRENTS
-    function detectRecurringPayments() {
-        const patterns = {};
-        
-        window.allTransactions.forEach(tx => {
-            if (tx.debit) {
-                const key = tx.description.split(' ').slice(0, 3).join(' ').toLowerCase();
-                if (!patterns[key]) patterns[key] = [];
-                patterns[key].push({
-                    date: new Date(tx.date),
-                    amount: parseFloat(tx.debit),
-                    description: tx.description
+            try {
+                const response = await fetch('/api/auth', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        action: 'login',
+                        email: email,
+                        password: password 
+                    })
                 });
-            }
-        });
-        
-        const recurring = [];
-        Object.values(patterns).forEach(payments => {
-            if (payments.length >= 2) {
-                payments.sort((a, b) => b.date - a.date);
-                const lastPayment = payments[0];
-                const nextDate = new Date(lastPayment.date);
-                nextDate.setDate(nextDate.getDate() + 30); // Mensuel par défaut
                 
-                recurring.push({
-                    description: lastPayment.description.split(' ').slice(0, 3).join(' '),
-                    amount: lastPayment.amount,
-                    nextDate: nextDate
-                });
-            }
-        });
-        
-        return recurring;
-    }
-    
-    // GÉNÉRER LE GRAPHIQUE DES CATÉGORIES
-    function generateCategoryChart() {
-        const categories = {
-            'Frais/Prêts': 0,
-            'Essentiels': 0,
-            'Retraits ATM': 0,
-            'Achats': 0,
-            'Autres': 0
-        };
-        
-        window.allTransactions.forEach(tx => {
-            if (tx.debit) {
-                const amount = parseFloat(tx.debit);
-                const desc = tx.description.toLowerCase();
+                const data = await response.json();
                 
-                if (desc.includes('cash max') || desc.includes('lender') || desc.includes('bdo') || desc.includes('farber') || desc.includes('fee')) {
-                    categories['Frais/Prêts'] += amount;
-                } else if (desc.includes('atm')) {
-                    categories['Retraits ATM'] += amount;
-                } else if (desc.includes('walmart') || desc.includes('metro')) {
-                    categories['Essentiels'] += amount;
-                } else if (desc.includes('tim hortons') || desc.includes('amazon')) {
-                    categories['Achats'] += amount;
+                if (data.success) {
+                    // Store token and user info
+                    localStorage.setItem('cashoo_token', data.token);
+                    localStorage.setItem('cashoo_user', JSON.stringify(data.user));
+                    
+                    // Show success message
+                    message.innerHTML = '<div class="message success">Login successful! Redirecting...</div>';
+                    
+                    // Redirect to dashboard
+                    setTimeout(() => {
+                        window.location.href = '/index.html';
+                    }, 1000);
                 } else {
-                    categories['Autres'] += amount;
+                    throw new Error(data.error || 'Login failed');
                 }
-            }
-        });
-        
-        const total = Object.values(categories).reduce((a, b) => a + b, 0);
-        const colors = ['#ef4444', '#f59e0b', '#3b82f6', '#10b981', '#6b7280'];
-        let chartHTML = '<div class="category-list">';
-        
-        let colorIndex = 0;
-        for (const [category, amount] of Object.entries(categories)) {
-            if (amount > 0) {
-                const percentage = ((amount / total) * 100).toFixed(1);
-                chartHTML += `
-                    <div class="category-item">
-                        <span class="category-dot" style="background: ${colors[colorIndex]}"></span>
-                        <span class="category-name">${category}</span>
-                        <span class="category-amount">$${amount.toFixed(2)}</span>
-                        <span class="category-percent">${percentage}%</span>
-                    </div>
-                `;
-                colorIndex++;
+            } catch (error) {
+                message.innerHTML = `<div class="message error">${error.message}</div>`;
+                button.disabled = false;
+                button.textContent = 'Sign In';
             }
         }
         
-        chartHTML += '</div>';
-        document.getElementById('categoryChart').innerHTML = chartHTML;
-    }
-    
-    // METTRE À JOUR LA TIMELINE DES TRANSACTIONS
-    function updateTransactionTimeline() {
-        const last7 = window.allTransactions.slice(0, 7);
-        
-        const timelineHTML = last7.map(tx => {
-            const date = new Date(tx.date);
-            const isToday = date.toDateString() === new Date().toDateString();
-            const dateStr = isToday ? 'Aujourd\'hui' : date.toLocaleDateString('fr-CA');
-            const timeStr = date.toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit' });
-            
-            const amount = tx.credit ? `+$${tx.credit}` : `-$${tx.debit}`;
-            const amountClass = tx.credit ? 'credit' : 'debit';
-            
-            return `
-                <div class="transaction-row">
-                    <div class="tx-time">${dateStr} ${timeStr}</div>
-                    <div class="tx-desc">${tx.description}</div>
-                    <div class="tx-amount ${amountClass}">${amount}</div>
-                    <div class="tx-category">[${categorizeTransaction(tx)}]</div>
-                </div>
-            `;
-        }).join('');
-        
-        document.getElementById('transactionTimeline').innerHTML = timelineHTML || '<div>Aucune transaction</div>';
-    }
-    
-    // CATÉGORISER UNE TRANSACTION
-    function categorizeTransaction(tx) {
-        const desc = tx.description.toLowerCase();
-        
-        if (desc.includes('cash max') || desc.includes('lender')) return 'Prêt';
-        if (desc.includes('bdo') || desc.includes('farber')) return 'Faillite';
-        if (desc.includes('atm')) return 'ATM';
-        if (desc.includes('walmart') || desc.includes('metro')) return 'Épicerie';
-        if (desc.includes('tim hortons')) return 'Restaurant';
-        if (desc.includes('acme job')) return 'Paie';
-        if (desc.includes('fee') || desc.includes('charge')) return 'Frais';
-        if (desc.includes('e-transfer in')) return 'Revenu';
-        
-        return 'Autre';
-    }
-    
-    // METTRE À JOUR LES OBJECTIFS
-    function updateGoals() {
-        const stats = calculateMonthlyStats();
-        
-        // Objectif 1: Éliminer déficit
-        const deficit = Math.abs(stats.deficit);
-        const saved = Math.max(0, deficit * 0.15); // Simulation 15% de progrès
-        const progress1 = deficit > 0 ? (saved / deficit * 100) : 0;
-        
-        document.getElementById('goal1Progress').style.width = `${progress1}%`;
-        document.getElementById('goal1Text').textContent = `$${saved.toFixed(2)} / $${deficit.toFixed(2)}`;
-        document.getElementById('goal1Percent').textContent = `${progress1.toFixed(0)}%`;
-        
-        // Objectif 2: Fonds urgence
-        const emergencyTarget = 500;
-        const emergencySaved = Math.max(0, window.currentBalance - 50);
-        const progress2 = (emergencySaved / emergencyTarget * 100);
-        
-        document.getElementById('goal2Progress').style.width = `${Math.min(100, progress2)}%`;
-        document.getElementById('goal2Text').textContent = `$${emergencySaved.toFixed(2)} / $${emergencyTarget}`;
-        document.getElementById('goal2Percent').textContent = `${Math.min(100, progress2).toFixed(0)}%`;
-    }
-    
-    // GÉNÉRER LES NOTIFICATIONS
-    function generateNotifications() {
-        const notifications = [];
-        
-        // Analyser les patterns
-        const atmTxs = window.allTransactions.filter(tx => 
-            tx.description.toLowerCase().includes('atm') && tx.debit
-        ).slice(0, 5);
-        
-        if (atmTxs.length >= 3) {
-            const totalATM = atmTxs.reduce((sum, tx) => sum + parseFloat(tx.debit || 0), 0);
-            notifications.push(`⚠️ Pattern détecté: ${atmTxs.length} retraits ATM récents (-$${totalATM.toFixed(2)})`);
-        }
-        
-        const stats = calculateMonthlyStats();
-        if (stats.deficit < 0) {
-            notifications.push(`💡 Opportunité: Réduire les dépenses de $${Math.abs(stats.deficit).toFixed(2)} pour équilibrer`);
-        }
-        
-        if (window.currentBalance < 100) {
-            notifications.push(`🔴 Alerte: Solde faible - Risque de frais NSF`);
-        }
-        
-        const notifHTML = notifications.map(n => `<div class="notification-item">${n}</div>`).join('');
-        document.getElementById('notifications').innerHTML = notifHTML || '<div class="notification-item">✅ Aucune alerte</div>';
-    }
-    
-    // CONFIGURER LES BOUTONS D'ACTION
-    function setupActionButtons() {
-        document.getElementById('btnConseil').onclick = () => {
-            showNotification('💡 Astuce: Évitez les retraits ATM multiples pour économiser les frais');
-        };
-        
-        document.getElementById('btnNegocier').onclick = () => {
-            openChatWithMessage("J'ai $1,100/mois en frais. Aidez-moi à négocier.");
-        };
-        
-        document.getElementById('btnBudget').onclick = () => {
-            const stats = calculateMonthlyStats();
-            openChatWithMessage(`Créez un budget avec revenus de $${stats.income.toFixed(2)}`);
-        };
-        
-        document.getElementById('btnRefresh').onclick = () => {
-            refreshAllData();
-        };
-        
-        document.getElementById('btnRapport').onclick = () => {
-            generateMonthlyReport();
-        };
-        
-        document.getElementById('btnAssistant').onclick = () => {
-            toggleChat();
-        };
-    }
-    
-    // RAFRAÎCHIR TOUTES LES DONNÉES
-    async function refreshAllData() {
-        showNotification('🔄 Actualisation...');
-        await loadFinancialData();
-        updateDashboard();
-        showNotification('✅ Données actualisées');
-    }
-    
-    // GÉNÉRER UN RAPPORT MENSUEL
-    function generateMonthlyReport() {
-        const stats = calculateMonthlyStats();
-        alert(`📊 RAPPORT MENSUEL
-        
-Solde: $${window.currentBalance.toFixed(2)}
-Revenus: $${stats.income.toFixed(2)}
-Dépenses: $${stats.expenses.toFixed(2)}
-Résultat: ${stats.deficit >= 0 ? '+' : ''}$${stats.deficit.toFixed(2)}
-
-Recommandations:
-${stats.deficit < 0 ? '- Réduire les dépenses de $' + Math.abs(stats.deficit).toFixed(2) : '- Continuer ainsi!'}
-        `);
-    }
-    
-    // INITIALISER LE CHAT
-    function initializeChat() {
-        const chatHTML = `
-            <div id="chatWidget" class="chat-widget">
-                <div class="chat-header" onclick="toggleChat()">
-                    <span class="chat-title">💬 Assistant CASHOO</span>
-                    <span class="chat-minimize">−</span>
-                </div>
-                <div class="chat-body">
-                    <div id="chatMessages" class="chat-messages">
-                        <div class="chat-message assistant">
-                            <strong>Assistant:</strong> Comment puis-je vous aider avec vos finances?
-                        </div>
-                    </div>
-                    <div class="chat-input-container">
-                        <input type="text" id="chatInput" placeholder="Tapez votre message..." 
-                               onkeypress="if(event.key==='Enter') sendChatMessage()">
-                        <button onclick="sendChatMessage()">Envoyer</button>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        document.body.insertAdjacentHTML('beforeend', chatHTML);
-    }
-    
-    // TOGGLE CHAT
-    function toggleChat() {
-        const widget = document.getElementById('chatWidget');
-        widget.classList.toggle('expanded');
-    }
-    
-    // OUVRIR CHAT AVEC MESSAGE
-    function openChatWithMessage(message) {
-        const widget = document.getElementById('chatWidget');
-        widget.classList.add('expanded');
-        document.getElementById('chatInput').value = message;
-        setTimeout(() => sendChatMessage(), 500);
-    }
-    
-    // ENVOYER MESSAGE CHAT
-    async function sendChatMessage() {
-        const input = document.getElementById('chatInput');
-        const message = input.value.trim();
-        if (!message) return;
-        
-        const messagesDiv = document.getElementById('chatMessages');
-        messagesDiv.innerHTML += `
-            <div class="chat-message user">
-                <strong>Vous:</strong> ${message}
-            </div>
-        `;
-        
-        input.value = '';
-        
-        try {
-            const response = await fetch('/api/claude/chat', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('cashoo_token')}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ 
-                    message: message,
-                    context: {
-                        balance: window.currentBalance,
-                        monthlyStats: window.monthlyStats,
-                        transactions: window.allTransactions.slice(0, 10)
-                    }
+        // Check if already logged in
+        window.onload = function() {
+            const token = localStorage.getItem('cashoo_token');
+            if (token) {
+                // Verify token is still valid
+                fetch('/api/auth', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ action: 'verify' })
                 })
-            });
-            
-            const data = await response.json();
-            
-            messagesDiv.innerHTML += `
-                <div class="chat-message assistant">
-                    <strong>Assistant:</strong> ${data.response || "Je vais analyser vos données..."}
-                </div>
-            `;
-        } catch (error) {
-            const stats = calculateMonthlyStats();
-            messagesDiv.innerHTML += `
-                <div class="chat-message assistant">
-                    <strong>Assistant:</strong> Vos stats: Solde $${window.currentBalance.toFixed(2)}, Revenus $${stats.income.toFixed(2)}, Dépenses $${stats.expenses.toFixed(2)}
-                </div>
-            `;
-        }
-        
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    }
-    
-    // NOTIFICATION TOAST
-    function showNotification(message, duration = 3000) {
-        const notif = document.createElement('div');
-        notif.className = 'toast-notification';
-        notif.textContent = message;
-        document.body.appendChild(notif);
-        
-        setTimeout(() => notif.classList.add('show'), 100);
-        
-        setTimeout(() => {
-            notif.classList.remove('show');
-            setTimeout(() => notif.remove(), 300);
-        }, duration);
-    }
+                .then(response => response.json())
+                .then(data => {
+                    if (data.valid) {
+                        window.location.href = '/index.html';
+                    }
+                });
+            }
+        };
     </script>
 </body>
 </html>
