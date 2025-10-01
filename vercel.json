@@ -1,20 +1,28 @@
 {
   "version": 2,
-  "buildCommand": false,
+  "buildCommand": null,
   "outputDirectory": "public",
   "cleanUrls": true,
   "trailingSlash": false,
-  "framework": null,
+  
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/public/$1"
+    }
+  ],
   
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/", "destination": "/login.html" },
-    { "source": "/login", "destination": "/login.html" },
-    { "source": "/register", "destination": "/register.html" },
-    { "source": "/forgot", "destination": "/forgot.html" },
-    { "source": "/dashboard", "destination": "/dashboard.html" },
-    { "source": "/test", "destination": "/test.html" },
-    { "source": "/(.*)", "destination": "/public/$1" }
+    { "source": "/", "destination": "/public/login.html" },
+    { "source": "/login", "destination": "/public/login.html" },
+    { "source": "/register", "destination": "/public/register.html" },
+    { "source": "/forgot", "destination": "/public/forgot.html" },
+    { "source": "/dashboard", "destination": "/public/dashboard.html" },
+    { "source": "/test", "destination": "/public/test.html" }
   ],
   
   "functions": {
@@ -30,17 +38,13 @@
       "headers": [
         { "key": "Access-Control-Allow-Origin", "value": "*" },
         { "key": "Access-Control-Allow-Methods", "value": "GET,OPTIONS,PATCH,DELETE,POST,PUT" },
-        { "key": "Access-Control-Allow-Headers", "value": "X-Requested-With, X-HTTP-Method-Override, Content-Type, Accept, Authorization" },
-        { "key": "Access-Control-Allow-Credentials", "value": "true" },
-        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type, Accept, Authorization" }
       ]
     },
     {
-      "source": "/(.*)",
+      "source": "/(.*).html",
       "headers": [
-        { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-XSS-Protection", "value": "1; mode=block" }
+        { "key": "Content-Type", "value": "text/html; charset=utf-8" }
       ]
     }
   ]
