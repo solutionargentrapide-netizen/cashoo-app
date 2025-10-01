@@ -1,4 +1,4 @@
-// CASHOO Banking Dashboard - VERSION UNIFIÉE
+// CASHOO Banking Dashboard - UNIFIED VERSION
 // Configuration
 const API_URL = '/api';
 let authToken = localStorage.getItem('cashoo_token');
@@ -6,7 +6,7 @@ let currentUser = null;
 let loginId = null;
 let currentProvider = null;
 
-// Vérifier l'authentification au chargement
+// Check authentication on load
 window.onload = () => {
     console.log('App loaded. Token exists:', !!authToken);
     if (authToken) {
@@ -15,7 +15,7 @@ window.onload = () => {
 };
 
 // ========================================
-// AUTHENTICATION - API UNIFIÉE
+// AUTHENTICATION - UNIFIED API
 // ========================================
 
 async function login(event) {
@@ -26,11 +26,11 @@ async function login(event) {
     const message = document.getElementById('loginMessage');
 
     button.disabled = true;
-    button.textContent = 'Connexion...';
+    button.textContent = 'Signing in...';
     message.innerHTML = '';
 
     try {
-        // UTILISE L'API UNIFIÉE
+        // USE UNIFIED API
         const response = await fetch(`${API_URL}/auth?action=login`, {
             method: 'POST',
             headers: {
@@ -51,7 +51,7 @@ async function login(event) {
             localStorage.setItem('cashoo_token', authToken);
             localStorage.setItem('cashoo_user', JSON.stringify(currentUser));
             
-            message.innerHTML = '<div class="success">Connexion réussie!</div>';
+            message.innerHTML = '<div class="success">Login successful!</div>';
             setTimeout(() => {
                 showDashboard();
             }, 1000);
@@ -62,7 +62,7 @@ async function login(event) {
         message.innerHTML = `<div class="error">${error.message}</div>`;
     } finally {
         button.disabled = false;
-        button.textContent = 'Connexion';
+        button.textContent = 'Sign In';
     }
 }
 
@@ -70,7 +70,7 @@ async function verifyAuth() {
     console.log('Verifying authentication...');
     
     try {
-        // UTILISE L'API UNIFIÉE
+        // USE UNIFIED API
         const response = await fetch(`${API_URL}/auth?action=verify`, {
             method: 'POST',
             headers: {
@@ -92,7 +92,7 @@ async function verifyAuth() {
             localStorage.setItem('cashoo_user', JSON.stringify(currentUser));
             showDashboard();
             
-            // Charger les données Inverite si elles existent
+            // Load Inverite data if exists
             checkForInveriteData();
         } else {
             logout();
@@ -104,7 +104,7 @@ async function verifyAuth() {
 }
 
 function logout() {
-    // Appeler l'API logout
+    // Call logout API
     if (authToken) {
         fetch(`${API_URL}/auth?action=logout`, {
             method: 'POST',
@@ -161,7 +161,7 @@ async function checkForInveriteData() {
             console.log('Found cached Inverite data!');
             displayInveriteData(data);
             document.getElementById('lastSync').textContent = 
-                `Vérifié via Inverite: ${new Date(data.lastSync || Date.now()).toLocaleString()}`;
+                `Verified via Inverite: ${new Date(data.lastSync || Date.now()).toLocaleString()}`;
             document.getElementById('connectBtn').style.display = 'none';
             document.getElementById('inveriteBtn').style.display = 'none';
             document.getElementById('syncBtn').style.display = 'inline-block';
@@ -177,7 +177,7 @@ async function checkForInveriteData() {
 
 async function connectBank() {
     currentProvider = 'flinks';
-    showStatus('Connexion à Flinks...', 'info');
+    showStatus('Connecting to Flinks...', 'info');
     
     try {
         const response = await fetch(`${API_URL}/flinks/connect`, {
@@ -189,18 +189,18 @@ async function connectBank() {
         const data = await response.json();
         
         if (data.url) {
-            document.getElementById('iframeTitle').textContent = 'Connexion Bancaire Flinks';
+            document.getElementById('iframeTitle').textContent = 'Flinks Bank Connection';
             document.getElementById('universalFrame').src = data.url;
             document.getElementById('iframeContainer').classList.add('active');
             
             window.addEventListener('message', handleFlinksCallback);
-            showStatus('Complétez la connexion dans la fenêtre', 'info');
+            showStatus('Complete the connection in the window', 'info');
         } else {
             throw new Error('Failed to get Flinks URL');
         }
     } catch (error) {
         console.error('Flinks connection error:', error);
-        showStatus('Échec de connexion à Flinks', 'error');
+        showStatus('Failed to connect to Flinks', 'error');
     }
 }
 
@@ -209,24 +209,24 @@ function handleFlinksCallback(event) {
         loginId = event.data.loginId;
         closeIframe();
         syncAccounts();
-        showStatus('Flinks connecté! Synchronisation...', 'success');
+        showStatus('Flinks connected! Synchronizing...', 'success');
     } else if (event.data && event.data.error) {
-        showStatus('Connexion Flinks échouée: ' + event.data.error, 'error');
+        showStatus('Flinks connection failed: ' + event.data.error, 'error');
         closeIframe();
     }
 }
 
 async function syncAccounts() {
     if (!loginId) {
-        loginId = prompt('Entrez votre Flinks LoginId (ou "demo" pour démo):');
+        loginId = prompt('Enter your Flinks LoginId (or "demo" for demo):');
         if (!loginId) return;
     }
 
     const syncBtn = document.getElementById('syncBtn');
     const connectBtn = document.getElementById('connectBtn');
     syncBtn.disabled = true;
-    syncBtn.textContent = 'Synchronisation...';
-    showStatus('Synchronisation de vos comptes...', 'info');
+    syncBtn.textContent = 'Synchronizing...';
+    showStatus('Synchronizing your accounts...', 'info');
 
     try {
         const response = await fetch(`${API_URL}/flinks/sync`, {
@@ -243,24 +243,24 @@ async function syncAccounts() {
         if (data.success) {
             displayAccountsData(data.data);
             document.getElementById('lastSync').textContent = 
-                `Dernière synchro: ${new Date(data.syncTime).toLocaleString()}`;
+                `Last sync: ${new Date(data.syncTime).toLocaleString()}`;
             connectBtn.style.display = 'none';
             syncBtn.style.display = 'inline-block';
             
             if (data.demo) {
-                showStatus('Données démo chargées', 'warning');
+                showStatus('Demo data loaded', 'warning');
             } else {
-                showStatus('Comptes synchronisés!', 'success');
+                showStatus('Accounts synchronized!', 'success');
             }
         } else {
             throw new Error(data.error || 'Sync failed');
         }
     } catch (error) {
         console.error('Sync error:', error);
-        showStatus(`Échec: ${error.message}`, 'error');
+        showStatus(`Failed: ${error.message}`, 'error');
     } finally {
         syncBtn.disabled = false;
-        syncBtn.textContent = 'Actualiser';
+        syncBtn.textContent = 'Refresh';
     }
 }
 
@@ -270,7 +270,7 @@ async function syncAccounts() {
 
 async function connectInverite() {
     currentProvider = 'inverite';
-    showStatus('Connexion à Inverite...', 'info');
+    showStatus('Connecting to Inverite...', 'info');
     
     try {
         const response = await fetch(`${API_URL}/inverite/connect`, {
@@ -289,18 +289,18 @@ async function connectInverite() {
         const data = await response.json();
         
         if (data.iframeUrl) {
-            document.getElementById('iframeTitle').textContent = 'Vérification Bancaire Inverite';
+            document.getElementById('iframeTitle').textContent = 'Inverite Bank Verification';
             document.getElementById('universalFrame').src = data.iframeUrl;
             document.getElementById('iframeContainer').classList.add('active');
             
             window.addEventListener('message', handleInveriteMessage);
-            showStatus('Complétez la vérification dans la fenêtre', 'info');
+            showStatus('Complete verification in the window', 'info');
         } else {
             throw new Error('Failed to get Inverite URL');
         }
     } catch (error) {
         console.error('Inverite connection error:', error);
-        showStatus('Échec de connexion à Inverite', 'error');
+        showStatus('Failed to connect to Inverite', 'error');
     }
 }
 
@@ -310,19 +310,19 @@ function handleInveriteMessage(event) {
     console.log('Data:', event.data);
     
     if (event.origin.includes('inverite.com')) {
-        console.log('Message Inverite reçu:', event.data);
+        console.log('Inverite message received:', event.data);
         
         if (event.data === 'success') {
-            console.log('Vérification Inverite réussie!');
+            console.log('Inverite verification successful!');
             closeIframe();
-            showStatus('Vérification terminée! Récupération des données...', 'success');
+            showStatus('Verification complete! Fetching data...', 'success');
             fetchInveriteData('339703B7-9B97-4FDC-8727-D04357A08DAD');
             
         } else if (event.data.type === 'ibv.request.completed') {
             const guid = event.data.content?.request?.guid;
-            console.log('Inverite complété avec GUID:', guid);
+            console.log('Inverite completed with GUID:', guid);
             closeIframe();
-            showStatus('Vérification terminée! Récupération des données...', 'success');
+            showStatus('Verification complete! Fetching data...', 'success');
             
             if (guid) {
                 fetchInveriteData(guid);
@@ -331,17 +331,17 @@ function handleInveriteMessage(event) {
             }
             
         } else if (event.data.type === 'ibv.data_collection.started') {
-            showStatus('Inverite traite vos données bancaires...', 'info');
+            showStatus('Inverite is processing your bank data...', 'info');
             
         } else if (event.data === 'error' || event.data.verified === 0) {
-            showStatus('Vérification Inverite échouée', 'error');
+            showStatus('Inverite verification failed', 'error');
             closeIframe();
         }
     }
 }
 
 async function fetchInveriteData(guid) {
-    showStatus('Récupération des données...', 'info');
+    showStatus('Fetching data...', 'info');
     
     try {
         const url = guid ? `/api/inverite/fetch?guid=${guid}` : '/api/inverite/fetch';
@@ -356,39 +356,39 @@ async function fetchInveriteData(guid) {
         });
 
         const data = await response.json();
-        console.log('Données Inverite reçues:', data);
+        console.log('Inverite data received:', data);
         
         if (data.success && data.accounts) {
             displayInveriteData(data);
             
             document.getElementById('lastSync').textContent = 
-                `Vérifié via Inverite: ${new Date().toLocaleString()}`;
-            showStatus('Données chargées avec succès!', 'success');
+                `Verified via Inverite: ${new Date().toLocaleString()}`;
+            showStatus('Data loaded successfully!', 'success');
             
             document.getElementById('connectBtn').style.display = 'none';
             document.getElementById('inveriteBtn').style.display = 'none';
             document.getElementById('syncBtn').style.display = 'inline-block';
             
         } else if (data.error) {
-            showStatus('Erreur: ' + data.error, 'error');
+            showStatus('Error: ' + data.error, 'error');
         } else {
-            showStatus('Pas de données disponibles. Réessayez dans quelques secondes.', 'warning');
+            showStatus('No data available. Retry in a few seconds.', 'warning');
             setTimeout(() => fetchInveriteData(guid), 3000);
         }
     } catch (error) {
-        console.error('Échec de récupération des données Inverite:', error);
-        showStatus('Échec de récupération: ' + error.message, 'error');
+        console.error('Failed to fetch Inverite data:', error);
+        showStatus('Fetch failed: ' + error.message, 'error');
     }
 }
 
 // ========================================
-// AFFICHAGE DES DONNÉES INVERITE
+// DISPLAY INVERITE DATA
 // ========================================
 
 function displayInveriteData(data) {
-    console.log('Affichage des données Inverite:', data);
+    console.log('Displaying Inverite data:', data);
     
-    // Calculer le solde total réel
+    // Calculate real total balance
     let totalBalance = 0;
     if (data.summary && data.summary.totalBalance !== undefined) {
         totalBalance = data.summary.totalBalance;
@@ -396,7 +396,7 @@ function displayInveriteData(data) {
         totalBalance = data.accounts.reduce((sum, acc) => sum + (acc.balance || 0), 0);
     }
     
-    // Si le solde est 0, chercher dans les transactions
+    // If balance is 0, look in transactions
     if (totalBalance === 0 && data.transactions && data.transactions.length > 0) {
         const firstTxWithBalance = data.transactions.find(tx => tx.balance !== null && tx.balance !== undefined);
         if (firstTxWithBalance) {
@@ -404,14 +404,14 @@ function displayInveriteData(data) {
         }
     }
     
-    // Afficher le solde total
+    // Display total balance
     document.getElementById('totalBalance').textContent = 
-        `$${totalBalance.toLocaleString('fr-CA', { 
+        `$${totalBalance.toLocaleString('en-CA', { 
             minimumFractionDigits: 2, 
             maximumFractionDigits: 2 
         })}`;
 
-    // Afficher les comptes
+    // Display accounts
     const accountsList = document.getElementById('accountsList');
     if (data.accounts && data.accounts.length > 0) {
         accountsList.innerHTML = data.accounts.map(account => {
@@ -420,10 +420,10 @@ function displayInveriteData(data) {
                 <div class="account-item">
                     <h3>${account.name || account.id}</h3>
                     <p style="color: #666; margin-bottom: 10px;">
-                        ${account.type || 'Compte'} - ${account.institution || account.bank || 'Banque'}
+                        ${account.type || 'Account'} - ${account.institution || account.bank || 'Bank'}
                     </p>
                     <p style="font-size: 1.5rem; font-weight: bold; color: #667eea;">
-                        $${balance.toLocaleString('fr-CA', { 
+                        $${balance.toLocaleString('en-CA', { 
                             minimumFractionDigits: 2, 
                             maximumFractionDigits: 2 
                         })}
@@ -432,15 +432,15 @@ function displayInveriteData(data) {
                         ${account.currency || 'CAD'}
                     </p>
                     ${account.transit ? `<p style="color: #888; font-size: 0.8rem;">Transit: ${account.transit}</p>` : ''}
-                    ${account.account ? `<p style="color: #888; font-size: 0.8rem;">Compte: ${account.account}</p>` : ''}
+                    ${account.account ? `<p style="color: #888; font-size: 0.8rem;">Account: ${account.account}</p>` : ''}
                 </div>
             `;
         }).join('');
     } else {
-        accountsList.innerHTML = '<div class="loading">Aucun compte trouvé</div>';
+        accountsList.innerHTML = '<div class="loading">No accounts found</div>';
     }
 
-    // Afficher les transactions
+    // Display transactions
     const transactionsList = document.getElementById('transactionsList');
     if (data.transactions && data.transactions.length > 0) {
         transactionsList.innerHTML = data.transactions.slice(0, 50).map(tx => {
@@ -465,7 +465,7 @@ function displayInveriteData(data) {
                             ${tx.description || tx.details || 'Transaction'}
                         </div>
                         <div class="transaction-date">
-                            ${new Date(tx.date).toLocaleDateString('fr-CA')} 
+                            ${new Date(tx.date).toLocaleDateString('en-CA')} 
                             ${tx.category ? `- ${tx.category}` : ''}
                         </div>
                     </div>
@@ -476,17 +476,17 @@ function displayInveriteData(data) {
             `;
         }).join('');
     } else {
-        transactionsList.innerHTML = '<div class="loading">Aucune transaction trouvée</div>';
+        transactionsList.innerHTML = '<div class="loading">No transactions found</div>';
     }
     
-    // Calculer les statistiques si la fonction existe
+    // Calculate statistics if function exists
     if (typeof calculateStats === 'function') {
         calculateStats(data.transactions);
     }
 }
 
 // ========================================
-// FONCTIONS PARTAGÉES
+// SHARED FUNCTIONS
 // ========================================
 
 function closeIframe() {
@@ -555,7 +555,7 @@ async function loadAccounts() {
             
             if (data.lastSync) {
                 document.getElementById('lastSync').textContent = 
-                    `Dernière synchro: ${new Date(data.lastSync).toLocaleString()}`;
+                    `Last sync: ${new Date(data.lastSync).toLocaleString()}`;
                 document.getElementById('connectBtn').style.display = 'none';
                 document.getElementById('syncBtn').style.display = 'inline-block';
             }
@@ -568,7 +568,7 @@ async function loadAccounts() {
 function displayAccountsData(data) {
     const balance = data.summary?.totalBalance || 0;
     document.getElementById('totalBalance').textContent = 
-        `$${balance.toLocaleString('fr-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        `$${balance.toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
     const accountsList = document.getElementById('accountsList');
     if (data.accounts && data.accounts.length > 0) {
@@ -576,10 +576,10 @@ function displayAccountsData(data) {
             <div class="account-item">
                 <h3>${account.name || account.id}</h3>
                 <p style="color: #666; margin-bottom: 10px;">
-                    ${account.type || 'Compte'} - ${account.institution || account.bank || 'Banque'}
+                    ${account.type || 'Account'} - ${account.institution || account.bank || 'Bank'}
                 </p>
                 <p style="font-size: 1.5rem; font-weight: bold; color: #667eea;">
-                    $${(account.balance || 0).toLocaleString('fr-CA', { 
+                    $${(account.balance || 0).toLocaleString('en-CA', { 
                         minimumFractionDigits: 2, 
                         maximumFractionDigits: 2 
                     })}
@@ -590,7 +590,7 @@ function displayAccountsData(data) {
             </div>
         `).join('');
     } else {
-        accountsList.innerHTML = '<div class="loading">Aucun compte trouvé</div>';
+        accountsList.innerHTML = '<div class="loading">No accounts found</div>';
     }
 
     const transactionsList = document.getElementById('transactionsList');
@@ -602,7 +602,7 @@ function displayAccountsData(data) {
                         ${tx.description || tx.details || 'Transaction'}
                     </div>
                     <div class="transaction-date">
-                        ${new Date(tx.date).toLocaleDateString('fr-CA')} 
+                        ${new Date(tx.date).toLocaleDateString('en-CA')} 
                         ${tx.category ? `- ${tx.category}` : ''}
                     </div>
                 </div>
@@ -613,7 +613,7 @@ function displayAccountsData(data) {
             </div>
         `).join('');
     } else {
-        transactionsList.innerHTML = '<div class="loading">Aucune transaction trouvée</div>';
+        transactionsList.innerHTML = '<div class="loading">No transactions found</div>';
     }
 }
 
@@ -624,10 +624,10 @@ function handleError(error) {
     }
 }
 
-// Fonction utilitaire pour recharger les données Inverite
+// Utility function to reload Inverite data
 window.refreshInveriteData = function() {
     fetchInveriteData('339703B7-9B97-4FDC-8727-D04357A08DAD');
 }
 
-console.log('🚀 CASHOO App v2.0 - API unifiée');
-console.log('💡 Astuce: Utilisez refreshInveriteData() pour recharger les données');
+console.log('🚀 CASHOO App v2.0 - Unified API');
+console.log('💡 Tip: Use refreshInveriteData() to reload data');
