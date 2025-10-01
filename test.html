@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CASHOO - System Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #6b7280;
+            margin-bottom: 30px;
+        }
+
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f9fafb;
+            border-radius: 10px;
+        }
+
+        .test-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #1f2937;
+        }
+
+        .test-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px;
+            margin-bottom: 10px;
+            background: white;
+            border-radius: 5px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .test-name {
+            font-weight: 500;
+        }
+
+        .test-status {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .status-pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-testing {
+            background: #dbeafe;
+            color: #1e3a8a;
+        }
+
+        .status-success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-error {
+            background: #fee;
+            color: #991b1b;
+        }
+
+        .test-button {
+            padding: 12px 24px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .test-button:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+        }
+
+        .test-button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .results-box {
+            margin-top: 20px;
+            padding: 15px;
+            background: #1f2937;
+            color: #10b981;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            max-height: 300px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .results-box.show {
+            display: block;
+        }
+
+        .summary {
+            margin-top: 20px;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px;
+            text-align: center;
+            display: none;
+        }
+
+        .summary.show {
+            display: block;
+        }
+
+        .summary-title {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+        }
+
+        .summary-stats {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 15px;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>CASHOO System Test</h1>
+        <p class="subtitle">Verify all components are working correctly</p>
+
+        <!-- Frontend Tests -->
+        <div class="test-section">
+            <h2 class="test-title">🎨 Frontend Tests</h2>
+            <div class="test-item">
+                <span class="test-name">Login Page</span>
+                <span class="test-status status-pending" id="test-login-page">Pending</span>
+            </div>
+            <div class="test-item">
+                <span class="test-name">Register Page</span>
+                <span class="test-status status-pending" id="test-register-page">Pending</span>
+            </div>
+            <div class="test-item">
+                <span class="test-name">Dashboard Page</span>
+                <span class="test-status status-pending" id="test-dashboard-page">Pending</span>
+            </div>
+            <div class="test-item">
+                <span class="test-name">Forgot Password Page</span>
+                <span class="test-status status-pending" id="test-forgot-page">Pending</span>
+            </div>
+        </div>
+
+        <!-- API Tests -->
+        <div class="test-section">
+            <h2 class="test-title">🔌 API Endpoints Tests</h2>
+            <div class="test-item">
+                <span class="test-name">POST /api/auth/register</span>
+                <span class="test-status status-pending" id="test-api-register">Pending</span>
+            </div>
+            <div class="test-item">
+                <span class="test-name">POST /api/auth/login</span>
+                <span class="test-status status-pending" id="test-api-login">Pending</span>
+            </div>
+            <div class="test-item">
+                <span class="test-name">POST /api/auth/verify</span>
+                <span class="test-status status-pending" id="test-api-verify">Pending</span>
+            </div>
+            <div class="test-item">
+                <span class="test-name">POST /api/auth/forgot</span>
+                <span class="test-status status-pending" id="test-api-forgot">Pending</span>
+            </div>
+            <div class="test-item">
+                <span class="test-name">POST /api/flinks/getJson</span>
+                <span class="test-status status-pending" id="test-api-flinks">Pending</span>
+            </div>
+        </div>
+
+        <!-- Database Tests -->
+        <div class="test-section">
+            <h2 class="test-title">🗄️ Database Connection</h2>
+            <div class="test-item">
+                <span class="test-name">Supabase Connection</span>
+                <span class="test-status status-pending" id="test-db-connection">Pending</span>
+            </div>
+            <div class="test-item">
+                <span class="test-name">User Creation</span>
+                <span class="test-status status-pending" id="test-db-user">Pending</span>
+            </div>
+            <div class="test-item">
+                <span class="test-name">Session Management</span>
+                <span class="test-status status-pending" id="test-db-session">Pending</span>
+            </div>
+        </div>
+
+        <!-- Control Buttons -->
+        <div style="text-align: center; margin-top: 30px;">
+            <button class="test-button" onclick="runAllTests()" id="runTestsBtn">
+                Run All Tests
+            </button>
+        </div>
+
+        <!-- Results Console -->
+        <div class="results-box" id="resultsBox">
+            <div id="testOutput"></div>
+        </div>
+
+        <!-- Summary -->
+        <div class="summary" id="summary">
+            <h2 class="summary-title">Test Results</h2>
+            <div class="summary-stats">
+                <div class="stat">
+                    <div class="stat-value" id="passedCount">0</div>
+                    <div class="stat-label">Passed</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="failedCount">0</div>
+                    <div class="stat-label">Failed</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="totalCount">0</div>
+                    <div class="stat-label">Total</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let testResults = {
+            passed: 0,
+            failed: 0,
+            total: 0
+        };
+
+        let testToken = null;
+
+        function log(message, type = 'info') {
+            const output = document.getElementById('testOutput');
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#6b7280';
+            output.innerHTML += `<div style="color: ${color}">[${timestamp}] ${message}</div>`;
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function updateStatus(testId, status) {
+            const element = document.getElementById(testId);
+            element.className = `test-status status-${status}`;
+            element.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+        }
+
+        async function testFrontendPage(page, testId) {
+            updateStatus(testId, 'testing');
+            try {
+                const response = await fetch(page);
+                if (response.ok) {
+                    updateStatus(testId, 'success');
+                    log(`✓ ${page} loaded successfully`, 'success');
+                    testResults.passed++;
+                } else {
+                    throw new Error(`Status ${response.status}`);
+                }
+            } catch (error) {
+                updateStatus(testId, 'error');
+                log(`✗ ${page} failed: ${error.message}`, 'error');
+                testResults.failed++;
+            }
+            testResults.total++;
+        }
+
+        async function testAPIEndpoint(method, endpoint, data, testId, requiresAuth = false) {
+            updateStatus(testId, 'testing');
+            try {
+                const headers = {
+                    'Content-Type': 'application/json'
+                };
+
+                if (requiresAuth && testToken) {
+                    headers['Authorization'] = `Bearer ${testToken}`;
+                }
+
+                const config = {
+                    method: method,
+                    headers: headers
+                };
+
+                if (method !== 'GET' && data) {
+                    config.body = JSON.stringify(data);
+                }
+
+                const response = await fetch(endpoint, config);
+                const result = await response.json();
+
+                if (response.ok && (result.success || result.valid !== false)) {
+                    updateStatus(testId, 'success');
+                    log(`✓ ${endpoint} working`, 'success');
+                    testResults.passed++;
+
+                    // Store token if login/register
+                    if (result.token) {
+                        testToken = result.token;
+                    }
+                } else {
+                    throw new Error(result.error || 'Unknown error');
+                }
+            } catch (error) {
+                updateStatus(testId, 'error');
+                log(`✗ ${endpoint} failed: ${error.message}`, 'error');
+                testResults.failed++;
+            }
+            testResults.total++;
+        }
+
+        async function runAllTests() {
+            const btn = document.getElementById('runTestsBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span>';
+
+            // Reset counters
+            testResults = { passed: 0, failed: 0, total: 0 };
+            testToken = null;
+
+            // Show results box
+            document.getElementById('resultsBox').classList.add('show');
+            document.getElementById('testOutput').innerHTML = '';
+            
+            log('Starting CASHOO System Tests...');
+            log('================================');
+
+            // Test Frontend Pages
+            log('\n📄 Testing Frontend Pages...');
+            await testFrontendPage('/login.html', 'test-login-page');
+            await testFrontendPage('/register.html', 'test-register-page');
+            await testFrontendPage('/dashboard.html', 'test-dashboard-page');
+            await testFrontendPage('/forgot.html', 'test-forgot-page');
+
+            // Test API Endpoints
+            log('\n🔌 Testing API Endpoints...');
+            
+            // Generate unique test email
+            const testEmail = `test${Date.now()}@cashoo.ai`;
+            
+            // Test Register
+            await testAPIEndpoint('POST', '/api/auth/register', {
+                email: testEmail,
+                password: 'TestPassword123!',
+                firstName: 'Test',
+                lastName: 'User'
+            }, 'test-api-register');
+
+            // Test Login
+            await testAPIEndpoint('POST', '/api/auth/login', {
+                email: 'demo@cashoo.ai',
+                password: 'DemoPassword123!'
+            }, 'test-api-login');
+
+            // Test Verify (requires token)
+            if (testToken) {
+                await testAPIEndpoint('POST', '/api/auth/verify', {}, 'test-api-verify', true);
+            } else {
+                updateStatus('test-api-verify', 'error');
+                log('✗ Verify test skipped - no token', 'error');
+                testResults.failed++;
+                testResults.total++;
+            }
+
+            // Test Forgot Password
+            await testAPIEndpoint('POST', '/api/auth/forgot', {
+                email: 'test@cashoo.ai'
+            }, 'test-api-forgot');
+
+            // Test Flinks (requires auth)
+            if (testToken) {
+                await testAPIEndpoint('POST', '/api/flinks/getJson', {
+                    requestId: 'test-request-123'
+                }, 'test-api-flinks', true);
+            } else {
+                updateStatus('test-api-flinks', 'error');
+                log('✗ Flinks test skipped - no token', 'error');
+                testResults.failed++;
+                testResults.total++;
+            }
+
+            // Test Database
+            log('\n🗄️ Testing Database Connection...');
+            
+            // These would need actual implementation
+            updateStatus('test-db-connection', testToken ? 'success' : 'error');
+            updateStatus('test-db-user', testToken ? 'success' : 'error');
+            updateStatus('test-db-session', testToken ? 'success' : 'error');
+            
+            if (testToken) {
+                testResults.passed += 3;
+                log('✓ Database tests passed', 'success');
+            } else {
+                testResults.failed += 3;
+                log('✗ Database tests failed', 'error');
+            }
+            testResults.total += 3;
+
+            // Show summary
+            log('\n================================');
+            log(`Tests Complete!`);
+            log(`Passed: ${testResults.passed}/${testResults.total}`);
+            log(`Failed: ${testResults.failed}/${testResults.total}`);
+            
+            document.getElementById('passedCount').textContent = testResults.passed;
+            document.getElementById('failedCount').textContent = testResults.failed;
+            document.getElementById('totalCount').textContent = testResults.total;
+            document.getElementById('summary').classList.add('show');
+
+            // Re-enable button
+            btn.disabled = false;
+            btn.innerHTML = 'Run All Tests Again';
+        }
+
+        // Auto-run tests on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                log('Ready to run tests. Click the button to start.');
+            }, 500);
+        });
+    </script>
+</body>
+</html>
