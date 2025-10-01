@@ -1,78 +1,90 @@
 {
   "version": 2,
+  "buildCommand": false,
+  "outputDirectory": ".",
   "cleanUrls": true,
   "trailingSlash": false,
-  "buildCommand": "",
-  "outputDirectory": ".",
-  "installCommand": "npm install",
-  "devCommand": "npm run dev",
+  "public": true,
   "framework": null,
+  
   "rewrites": [
+    { "source": "/", "destination": "/login.html" },
+    { "source": "/login", "destination": "/login.html" },
+    { "source": "/register", "destination": "/register.html" },
+    { "source": "/forgot", "destination": "/forgot.html" },
+    { "source": "/dashboard", "destination": "/dashboard.html" },
+    { "source": "/test", "destination": "/test.html" }
+  ],
+  
+  "routes": [
     {
-      "source": "/",
-      "destination": "/login.html"
+      "src": "/api/(.*)",
+      "dest": "/api/$1",
+      "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"],
+      "continue": false
     },
     {
-      "source": "/dashboard",
-      "destination": "/dashboard.html"
+      "src": "/(login|register|forgot|dashboard|test)",
+      "dest": "/$1.html",
+      "status": 200
     },
     {
-      "source": "/api/(.*)",
-      "destination": "/api/$1"
+      "src": "/(.+\\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot))",
+      "dest": "/$1",
+      "headers": { "Cache-Control": "public, max-age=31536000" }
     }
   ],
+  
   "functions": {
-    "api/**/*.js": {
-      "maxDuration": 30
+    "api/auth/login.js": {
+      "maxDuration": 30,
+      "runtime": "nodejs20.x"
+    },
+    "api/auth/register.js": {
+      "maxDuration": 30,
+      "runtime": "nodejs20.x"
+    },
+    "api/auth/forgot.js": {
+      "maxDuration": 30,
+      "runtime": "nodejs20.x"
+    },
+    "api/auth/verify.js": {
+      "maxDuration": 30,
+      "runtime": "nodejs20.x"
+    },
+    "api/flinks/getJson.js": {
+      "maxDuration": 30,
+      "runtime": "nodejs20.x"
+    },
+    "api/claude/chat.js": {
+      "maxDuration": 30,
+      "runtime": "nodejs20.x"
     }
   },
+  
   "headers": [
-    {
-      "source": "**/*.html",
-      "headers": [
-        {
-          "key": "Content-Type",
-          "value": "text/html; charset=utf-8"
-        },
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=0, must-revalidate"
-        }
-      ]
-    },
-    {
-      "source": "**/*.css",
-      "headers": [
-        {
-          "key": "Content-Type",
-          "value": "text/css; charset=utf-8"
-        }
-      ]
-    },
-    {
-      "source": "**/*.js",
-      "headers": [
-        {
-          "key": "Content-Type",
-          "value": "application/javascript; charset=utf-8"
-        }
-      ]
-    },
     {
       "source": "/api/(.*)",
       "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "*"
-        },
-        {
-          "key": "Access-Control-Allow-Methods",
-          "value": "GET,OPTIONS,PATCH,DELETE,POST,PUT"
-        },
-        {
-          "key": "Access-Control-Allow-Headers",
-          "value": "X-Requested-With, X-HTTP-Method-Override, Content-Type, Accept, Authorization"
-        }
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET,OPTIONS,PATCH,DELETE,POST,PUT" },
+        { "key": "Access-Control-Allow-Headers", "value": "X-Requested-With, X-HTTP-Method-Override, Content-Type, Accept, Authorization" },
+        { "key": "Access-Control-Allow-Credentials", "value": "true" },
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/(.*).html",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=3600" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "X-XSS-Protection", "value": "1; mode=block" }
       ]
     }
   ]
