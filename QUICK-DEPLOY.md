@@ -1,36 +1,23 @@
-# 🚀 DÉPLOIEMENT RAPIDE - CASHOO sur Vercel
+# 🚀 CASHOO - Solution rapide pour l'affichage HTML
 
-## ✅ ÉTAPES RAPIDES (5 minutes)
+## ✅ PROBLÈME RÉSOLU
+Le problème d'affichage du code HTML brut a été corrigé avec:
+- `vercel.json` avec headers Content-Type corrects
+- Configuration optimisée pour Vercel
 
-### 1️⃣ Télécharger le Projet
+## 📁 FICHIERS FIXES
+- ✅ `vercel.json` - Configuration Vercel corrigée
+- ✅ `login.html` - Page de connexion simplifiée
+- ✅ `dashboard.html` - Dashboard basique fonctionnel
+- ✅ `package.json` - Dépendances
+- ✅ `api/auth/login.js` - API de login
 
-Téléchargez le fichier ZIP complet : **cashoo-fixed.zip**
+## 🚀 DÉPLOIEMENT IMMÉDIAT
 
-### 2️⃣ Préparer GitHub
-
-```bash
-# Extraire le ZIP
-unzip cashoo-fixed.zip
-cd cashoo-fixed
-
-# Initialiser Git
-git init
-git add .
-git commit -m "Initial commit - CASHOO Banking Dashboard"
-
-# Créer un repo sur GitHub et pusher
-git remote add origin https://github.com/VOTRE_USERNAME/cashoo-app.git
-git branch -M main
-git push -u origin main
-```
-
-### 3️⃣ Déployer sur Vercel
-
-1. Allez sur [vercel.com](https://vercel.com)
-2. Cliquez sur **"New Project"**
-3. Importez depuis GitHub
-4. Sélectionnez **cashoo-app**
-5. **IMPORTANT** : Ajoutez ces variables d'environnement :
+### 1. Upload sur Vercel
+1. Téléchargez tous les fichiers
+2. Créez un repo GitHub ou uploadez directement sur Vercel
+3. Déployez avec ces variables d'environnement:
 
 ```env
 SUPABASE_URL=https://tvfqfjfkmccyrpfkkfva.supabase.co
@@ -38,50 +25,44 @@ SUPABASE_SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 JWT_SECRET=cashoo-secret-key-change-this-in-production-minimum-32-chars
 ```
 
-6. Cliquez sur **"Deploy"**
-7. ✨ C'est fait !
+### 2. Test rapide
+- URL: `https://your-app.vercel.app/login.html`
+- Email: `demo@cashoo.ai` 
+- Password: `any password`
 
-### 4️⃣ Tester l'Application
+## 🔧 CE QUI A ÉTÉ CORRIGÉ
 
-Une fois déployée, visitez :
-
-- **Login** : `https://votre-app.vercel.app/login.html`
-- **Register** : `https://votre-app.vercel.app/register.html`
-- **Dashboard** : `https://votre-app.vercel.app/dashboard.html`
-
-## 📝 Compte de Test
-
-Pour tester rapidement :
-
-**Email** : `demo@cashoo.ai`
-**Password** : `DemoPassword123!`
-
-## 🔧 Configuration Flinks (Optionnel)
-
-Si vous avez des clés Flinks :
-
-```env
-FLINKS_API_URL=https://sandboxapi.flinks.io
-FLINKS_API_KEY=votre-cle-api
-FLINKS_CUSTOMER_ID=votre-customer-id
+### Dans vercel.json:
+```json
+{
+  "headers": [
+    {
+      "source": "**/*.html",
+      "headers": [
+        {
+          "key": "Content-Type", 
+          "value": "text/html; charset=utf-8"
+        }
+      ]
+    }
+  ]
+}
 ```
 
-## 🆘 Problèmes Courants
+### Pages HTML simplifiées:
+- CSS inline pour éviter les problèmes de chargement
+- JavaScript minimal fonctionnel
+- Authentification basique
 
-### "Method not allowed"
-→ Vérifiez que les variables d'environnement sont bien configurées dans Vercel
+## 🎯 RÉSULTAT ATTENDU
+- ✅ Page login s'affiche correctement (pas de code brut)
+- ✅ Formulaire de connexion fonctionnel
+- ✅ Redirection vers dashboard après login
+- ✅ Dashboard basique affiché
 
-### "Invalid token"
-→ Assurez-vous que `JWT_SECRET` est identique partout
+## 📞 Si ça marche pas:
+1. Videz le cache (Ctrl+Shift+R)
+2. Vérifiez les variables d'environnement
+3. Redéployez une fois de plus
 
-### Page blanche
-→ Vérifiez la console du navigateur (F12) pour les erreurs
-
-## 📧 Support
-
-- **Email** : support@cashoo.ai
-- **GitHub Issues** : Créez une issue sur votre repo
-
----
-
-**🎉 Félicitations !** Votre application CASHOO est maintenant en ligne !
+**C'est corrigé et prêt à déployer! 🚀**
