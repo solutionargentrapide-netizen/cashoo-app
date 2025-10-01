@@ -1,633 +1,492 @@
-// CASHOO Banking Dashboard - UNIFIED VERSION
-// Configuration
+// CASHOO Banking Dashboard - Main JavaScript
+
+// ========================================
+// CONFIGURATION
+// ========================================
 const API_URL = '/api';
-let authToken = localStorage.getItem('cashoo_token');
-let currentUser = null;
-let loginId = null;
-let currentProvider = null;
-
-// Check authentication on load
-window.onload = () => {
-    console.log('App loaded. Token exists:', !!authToken);
-    if (authToken) {
-        verifyAuth();
-    }
-};
+const APP_NAME = 'CASHOO';
 
 // ========================================
-// AUTHENTICATION - UNIFIED API
+// AUTHENTICATION FUNCTIONS
 // ========================================
 
-async function login(event) {
-    event.preventDefault();
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
-    const button = document.getElementById('loginBtn');
-    const message = document.getElementById('loginMessage');
+// Get stored auth token
+function getAuthToken() {
+    return localStorage.getItem('cashoo_token') || sessionStorage.getItem('cashoo_token');
+}
 
-    button.disabled = true;
-    button.textContent = 'Signing in...';
-    message.innerHTML = '';
+// Get stored user
+function getCurrentUser() {
+    const userStr = localStorage.getItem('cashoo_user') || sessionStorage.getItem('cashoo_user');
+    return userStr ? JSON.parse(userStr) : null;
+}
 
-    try {
-        // USE UNIFIED API
-        const response = await fetch(`${API_URL}/auth?action=login`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ 
-                action: 'login',
-                email,
-                password 
-            })
-        });
+// Check if user is authenticated
+function isAuthenticated() {
+    return !!getAuthToken();
+}
 
-        const data = await response.json();
-
-        if (data.success) {
-            authToken = data.token;
-            currentUser = data.user;
-            localStorage.setItem('cashoo_token', authToken);
-            localStorage.setItem('cashoo_user', JSON.stringify(currentUser));
-            
-            message.innerHTML = '<div class="success">Login successful!</div>';
-            setTimeout(() => {
-                showDashboard();
-            }, 1000);
-        } else {
-            throw new Error(data.error || 'Login failed');
-        }
-    } catch (error) {
-        message.innerHTML = `<div class="error">${error.message}</div>`;
-    } finally {
-        button.disabled = false;
-        button.textContent = 'Sign In';
+// Store authentication data
+function storeAuthData(token, user, remember = true) {
+    if (remember) {
+        localStorage.setItem('cashoo_token', token);
+        localStorage.setItem('cashoo_user', JSON.stringify(user));
+    } else {
+        sessionStorage.setItem('cashoo_token', token);
+        sessionStorage.setItem('cashoo_user', JSON.stringify(user));
     }
 }
 
-async function verifyAuth() {
-    console.log('Verifying authentication...');
-    
-    try {
-        // USE UNIFIED API
-        const response = await fetch(`${API_URL}/auth?action=verify`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ action: 'verify' })
-        });
-
-        const data = await response.json();
-        console.log('Verify response:', data);
-
-        if (data.valid) {
-            currentUser = { 
-                id: data.userId, 
-                email: data.email,
-                emailVerified: data.emailVerified 
-            };
-            localStorage.setItem('cashoo_user', JSON.stringify(currentUser));
-            showDashboard();
-            
-            // Load Inverite data if exists
-            checkForInveriteData();
-        } else {
-            logout();
-        }
-    } catch (error) {
-        console.error('Auth verification failed:', error);
-        logout();
-    }
-}
-
-function logout() {
-    // Call logout API
-    if (authToken) {
-        fetch(`${API_URL}/auth?action=logout`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ action: 'logout' })
-        });
-    }
-    
+// Clear authentication data
+function clearAuthData() {
     localStorage.removeItem('cashoo_token');
     localStorage.removeItem('cashoo_user');
-    authToken = null;
-    currentUser = null;
-    loginId = null;
-    
-    document.getElementById('loginForm').style.display = 'block';
-    document.getElementById('dashboard').style.display = 'none';
-    document.getElementById('dashboard').classList.remove('active');
-    document.getElementById('email').value = '';
-    document.getElementById('loginMessage').innerHTML = '';
+    sessionStorage.removeItem('cashoo_token');
+    sessionStorage.removeItem('cashoo_user');
 }
 
-function showDashboard() {
-    console.log('Showing dashboard');
-    document.getElementById('loginForm').style.display = 'none';
-    document.getElementById('dashboard').style.display = 'block';
-    document.getElementById('dashboard').classList.add('active');
-    document.getElementById('userEmail').textContent = currentUser.email;
-    loadAccounts();
-}
+// Verify authentication
+async function verifyAuth() {
+    const token = getAuthToken();
+    if (!token) return false;
 
-// ========================================
-// CHECK FOR EXISTING DATA
-// ========================================
-
-async function checkForInveriteData() {
-    console.log('Checking for existing Inverite data...');
-    
     try {
-        const response = await fetch(`${API_URL}/inverite/fetch`, {
+        const response = await fetch(`${API_URL}/auth/verify`, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${authToken}`,
+                'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({})
-        });
-
-        const data = await response.json();
-        
-        if (data.success && data.accounts && data.accounts.length > 0) {
-            console.log('Found cached Inverite data!');
-            displayInveriteData(data);
-            document.getElementById('lastSync').textContent = 
-                `Verified via Inverite: ${new Date(data.lastSync || Date.now()).toLocaleString()}`;
-            document.getElementById('connectBtn').style.display = 'none';
-            document.getElementById('inveriteBtn').style.display = 'none';
-            document.getElementById('syncBtn').style.display = 'inline-block';
-        }
-    } catch (error) {
-        console.log('No cached Inverite data found');
-    }
-}
-
-// ========================================
-// FLINKS INTEGRATION
-// ========================================
-
-async function connectBank() {
-    currentProvider = 'flinks';
-    showStatus('Connecting to Flinks...', 'info');
-    
-    try {
-        const response = await fetch(`${API_URL}/flinks/connect`, {
-            headers: {
-                'Authorization': `Bearer ${authToken}`
             }
         });
 
         const data = await response.json();
-        
-        if (data.url) {
-            document.getElementById('iframeTitle').textContent = 'Flinks Bank Connection';
-            document.getElementById('universalFrame').src = data.url;
-            document.getElementById('iframeContainer').classList.add('active');
-            
-            window.addEventListener('message', handleFlinksCallback);
-            showStatus('Complete the connection in the window', 'info');
-        } else {
-            throw new Error('Failed to get Flinks URL');
-        }
+        return data.valid === true;
     } catch (error) {
-        console.error('Flinks connection error:', error);
-        showStatus('Failed to connect to Flinks', 'error');
+        console.error('Auth verification failed:', error);
+        return false;
     }
 }
 
-function handleFlinksCallback(event) {
-    if (event.data && event.data.loginId) {
-        loginId = event.data.loginId;
-        closeIframe();
-        syncAccounts();
-        showStatus('Flinks connected! Synchronizing...', 'success');
-    } else if (event.data && event.data.error) {
-        showStatus('Flinks connection failed: ' + event.data.error, 'error');
-        closeIframe();
+// Redirect to login if not authenticated
+function requireAuth() {
+    if (!isAuthenticated()) {
+        window.location.href = '/login.html';
+        return false;
     }
+    return true;
 }
 
-async function syncAccounts() {
-    if (!loginId) {
-        loginId = prompt('Enter your Flinks LoginId (or "demo" for demo):');
-        if (!loginId) return;
+// Logout function
+function logout() {
+    clearAuthData();
+    window.location.href = '/login.html';
+}
+
+// ========================================
+// API FUNCTIONS
+// ========================================
+
+// Generic API request function
+async function apiRequest(endpoint, options = {}) {
+    const token = getAuthToken();
+    
+    const defaultHeaders = {
+        'Content-Type': 'application/json'
+    };
+    
+    if (token) {
+        defaultHeaders['Authorization'] = `Bearer ${token}`;
     }
-
-    const syncBtn = document.getElementById('syncBtn');
-    const connectBtn = document.getElementById('connectBtn');
-    syncBtn.disabled = true;
-    syncBtn.textContent = 'Synchronizing...';
-    showStatus('Synchronizing your accounts...', 'info');
-
+    
+    const config = {
+        ...options,
+        headers: {
+            ...defaultHeaders,
+            ...(options.headers || {})
+        }
+    };
+    
     try {
-        const response = await fetch(`${API_URL}/flinks/sync`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ loginId })
-        });
-
+        const response = await fetch(`${API_URL}${endpoint}`, config);
         const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.error || `HTTP ${response.status}`);
+        }
+        
+        return data;
+    } catch (error) {
+        console.error(`API request failed for ${endpoint}:`, error);
+        throw error;
+    }
+}
 
-        if (data.success) {
-            displayAccountsData(data.data);
-            document.getElementById('lastSync').textContent = 
-                `Last sync: ${new Date(data.syncTime).toLocaleString()}`;
-            connectBtn.style.display = 'none';
-            syncBtn.style.display = 'inline-block';
-            
-            if (data.demo) {
-                showStatus('Demo data loaded', 'warning');
+// Login API call
+async function loginAPI(email, password) {
+    return apiRequest('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password })
+    });
+}
+
+// Register API call
+async function registerAPI(userData) {
+    return apiRequest('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(userData)
+    });
+}
+
+// Forgot password API call
+async function forgotPasswordAPI(email) {
+    return apiRequest('/auth/forgot', {
+        method: 'POST',
+        body: JSON.stringify({ email })
+    });
+}
+
+// Get Flinks data
+async function getFlinksData(requestId) {
+    return apiRequest('/flinks/getJson', {
+        method: 'POST',
+        body: JSON.stringify({ requestId })
+    });
+}
+
+// Claude AI chat
+async function claudeChat(message, context = {}) {
+    return apiRequest('/claude/chat', {
+        method: 'POST',
+        body: JSON.stringify({ message, context })
+    });
+}
+
+// ========================================
+// UI FUNCTIONS
+// ========================================
+
+// Show loading state on button
+function showButtonLoading(buttonId, loadingText = 'Loading...') {
+    const button = document.getElementById(buttonId);
+    if (!button) return;
+    
+    button.disabled = true;
+    button.dataset.originalText = button.textContent;
+    button.innerHTML = `<span class="loading-spinner-small"></span> ${loadingText}`;
+}
+
+// Hide loading state on button
+function hideButtonLoading(buttonId) {
+    const button = document.getElementById(buttonId);
+    if (!button) return;
+    
+    button.disabled = false;
+    button.innerHTML = button.dataset.originalText || 'Submit';
+}
+
+// Show alert message
+function showAlert(message, type = 'info', containerId = 'alertBox') {
+    const alertBox = document.getElementById(containerId);
+    if (!alertBox) {
+        console.warn(`Alert container ${containerId} not found`);
+        return;
+    }
+    
+    alertBox.className = `alert alert-${type} show`;
+    alertBox.textContent = message;
+    
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+        alertBox.classList.remove('show');
+    }, 5000);
+}
+
+// Show/hide modal
+function showModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.add('show');
+    }
+}
+
+function hideModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.remove('show');
+    }
+}
+
+// Toggle password visibility
+function togglePasswordVisibility(inputId) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    
+    if (input.type === 'password') {
+        input.type = 'text';
+    } else {
+        input.type = 'password';
+    }
+}
+
+// ========================================
+// FORMATTING FUNCTIONS
+// ========================================
+
+// Format currency
+function formatCurrency(amount, currency = 'USD') {
+    return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: currency
+    }).format(amount || 0);
+}
+
+// Format date
+function formatDate(dateStr, format = 'short') {
+    const date = new Date(dateStr);
+    
+    if (format === 'short') {
+        return date.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+        });
+    } else if (format === 'long') {
+        return date.toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+    } else {
+        return date.toLocaleDateString();
+    }
+}
+
+// Format relative time
+function formatRelativeTime(dateStr) {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diff = now - date;
+    const seconds = Math.floor(diff / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+    
+    if (days > 0) {
+        return `${days} day${days > 1 ? 's' : ''} ago`;
+    } else if (hours > 0) {
+        return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+    } else if (minutes > 0) {
+        return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+    } else {
+        return 'Just now';
+    }
+}
+
+// ========================================
+// VALIDATION FUNCTIONS
+// ========================================
+
+// Validate email
+function validateEmail(email) {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(email);
+}
+
+// Validate password strength
+function validatePassword(password) {
+    const minLength = password.length >= 8;
+    const hasUpper = /[A-Z]/.test(password);
+    const hasLower = /[a-z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSpecial = /[^A-Za-z0-9]/.test(password);
+    
+    return {
+        isValid: minLength && hasUpper && hasLower && hasNumber,
+        strength: [minLength, hasUpper, hasLower, hasNumber, hasSpecial].filter(Boolean).length,
+        details: {
+            minLength,
+            hasUpper,
+            hasLower,
+            hasNumber,
+            hasSpecial
+        }
+    };
+}
+
+// ========================================
+// FINANCIAL ANALYSIS FUNCTIONS
+// ========================================
+
+// Calculate monthly stats from transactions
+function calculateMonthlyStats(transactions) {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    
+    let income = 0;
+    let expenses = 0;
+    
+    transactions.forEach(tx => {
+        const txDate = new Date(tx.date);
+        if (txDate.getMonth() === currentMonth && txDate.getFullYear() === currentYear) {
+            const amount = tx.amount || tx.credit || -(tx.debit || 0);
+            if (amount > 0) {
+                income += amount;
             } else {
-                showStatus('Accounts synchronized!', 'success');
+                expenses += Math.abs(amount);
             }
-        } else {
-            throw new Error(data.error || 'Sync failed');
         }
-    } catch (error) {
-        console.error('Sync error:', error);
-        showStatus(`Failed: ${error.message}`, 'error');
-    } finally {
-        syncBtn.disabled = false;
-        syncBtn.textContent = 'Refresh';
+    });
+    
+    return {
+        income,
+        expenses,
+        netCashFlow: income - expenses
+    };
+}
+
+// Categorize transaction
+function categorizeTransaction(description) {
+    if (!description) return 'Other';
+    
+    const desc = description.toLowerCase();
+    
+    const categories = {
+        'Groceries': ['grocery', 'walmart', 'metro', 'loblaws', 'sobeys'],
+        'Dining': ['restaurant', 'cafe', 'coffee', 'tim hortons', 'mcdonald', 'subway'],
+        'Transport': ['gas', 'petro', 'esso', 'shell', 'uber', 'lyft', 'parking'],
+        'Utilities': ['hydro', 'electricity', 'water', 'internet', 'phone', 'bell', 'rogers'],
+        'Housing': ['rent', 'mortgage', 'property'],
+        'Entertainment': ['netflix', 'spotify', 'cinema', 'movie', 'game'],
+        'Shopping': ['amazon', 'ebay', 'store', 'mall'],
+        'Healthcare': ['pharmacy', 'doctor', 'hospital', 'dental'],
+        'Income': ['payroll', 'salary', 'deposit', 'transfer in'],
+        'Fees': ['fee', 'charge', 'nsf', 'interest'],
+        'ATM': ['atm', 'withdrawal', 'cash']
+    };
+    
+    for (const [category, keywords] of Object.entries(categories)) {
+        if (keywords.some(keyword => desc.includes(keyword))) {
+            return category;
+        }
     }
+    
+    return 'Other';
 }
 
 // ========================================
-// INVERITE INTEGRATION
+// INITIALIZATION
 // ========================================
 
-async function connectInverite() {
-    currentProvider = 'inverite';
-    showStatus('Connecting to Inverite...', 'info');
+// Initialize page based on authentication status
+async function initializePage() {
+    const isAuthPage = window.location.pathname.includes('login') || 
+                      window.location.pathname.includes('register') || 
+                      window.location.pathname.includes('forgot');
     
-    try {
-        const response = await fetch(`${API_URL}/inverite/connect`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                firstname: currentUser.email.split('@')[0] || 'User',
-                lastname: 'CASHOO',
-                email: currentUser.email
-            })
-        });
-
-        const data = await response.json();
+    if (!isAuthPage) {
+        // Protected pages - require authentication
+        const isValid = await verifyAuth();
+        if (!isValid) {
+            window.location.href = '/login.html';
+            return;
+        }
         
-        if (data.iframeUrl) {
-            document.getElementById('iframeTitle').textContent = 'Inverite Bank Verification';
-            document.getElementById('universalFrame').src = data.iframeUrl;
-            document.getElementById('iframeContainer').classList.add('active');
-            
-            window.addEventListener('message', handleInveriteMessage);
-            showStatus('Complete verification in the window', 'info');
-        } else {
-            throw new Error('Failed to get Inverite URL');
+        // Load user info
+        const user = getCurrentUser();
+        if (user) {
+            updateUserDisplay(user);
         }
-    } catch (error) {
-        console.error('Inverite connection error:', error);
-        showStatus('Failed to connect to Inverite', 'error');
-    }
-}
-
-function handleInveriteMessage(event) {
-    console.log('=== INVERITE MESSAGE ===');
-    console.log('Origin:', event.origin);
-    console.log('Data:', event.data);
-    
-    if (event.origin.includes('inverite.com')) {
-        console.log('Inverite message received:', event.data);
-        
-        if (event.data === 'success') {
-            console.log('Inverite verification successful!');
-            closeIframe();
-            showStatus('Verification complete! Fetching data...', 'success');
-            fetchInveriteData('339703B7-9B97-4FDC-8727-D04357A08DAD');
-            
-        } else if (event.data.type === 'ibv.request.completed') {
-            const guid = event.data.content?.request?.guid;
-            console.log('Inverite completed with GUID:', guid);
-            closeIframe();
-            showStatus('Verification complete! Fetching data...', 'success');
-            
-            if (guid) {
-                fetchInveriteData(guid);
-            } else {
-                fetchInveriteData();
+    } else {
+        // Auth pages - redirect if already logged in
+        if (isAuthenticated()) {
+            const isValid = await verifyAuth();
+            if (isValid) {
+                window.location.href = '/dashboard.html';
             }
-            
-        } else if (event.data.type === 'ibv.data_collection.started') {
-            showStatus('Inverite is processing your bank data...', 'info');
-            
-        } else if (event.data === 'error' || event.data.verified === 0) {
-            showStatus('Inverite verification failed', 'error');
-            closeIframe();
         }
     }
 }
 
-async function fetchInveriteData(guid) {
-    showStatus('Fetching data...', 'info');
+// Update user display in header
+function updateUserDisplay(user) {
+    const emailElement = document.getElementById('userEmail');
+    const avatarElement = document.getElementById('userAvatar');
     
-    try {
-        const url = guid ? `/api/inverite/fetch?guid=${guid}` : '/api/inverite/fetch';
-        
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ guid: guid || null })
-        });
-
-        const data = await response.json();
-        console.log('Inverite data received:', data);
-        
-        if (data.success && data.accounts) {
-            displayInveriteData(data);
-            
-            document.getElementById('lastSync').textContent = 
-                `Verified via Inverite: ${new Date().toLocaleString()}`;
-            showStatus('Data loaded successfully!', 'success');
-            
-            document.getElementById('connectBtn').style.display = 'none';
-            document.getElementById('inveriteBtn').style.display = 'none';
-            document.getElementById('syncBtn').style.display = 'inline-block';
-            
-        } else if (data.error) {
-            showStatus('Error: ' + data.error, 'error');
-        } else {
-            showStatus('No data available. Retry in a few seconds.', 'warning');
-            setTimeout(() => fetchInveriteData(guid), 3000);
-        }
-    } catch (error) {
-        console.error('Failed to fetch Inverite data:', error);
-        showStatus('Fetch failed: ' + error.message, 'error');
+    if (emailElement) {
+        emailElement.textContent = user.email;
+    }
+    
+    if (avatarElement) {
+        const initials = user.email.substring(0, 2).toUpperCase();
+        avatarElement.textContent = initials;
     }
 }
 
 // ========================================
-// DISPLAY INVERITE DATA
+// EVENT LISTENERS
 // ========================================
 
-function displayInveriteData(data) {
-    console.log('Displaying Inverite data:', data);
-    
-    // Calculate real total balance
-    let totalBalance = 0;
-    if (data.summary && data.summary.totalBalance !== undefined) {
-        totalBalance = data.summary.totalBalance;
-    } else if (data.accounts && data.accounts.length > 0) {
-        totalBalance = data.accounts.reduce((sum, acc) => sum + (acc.balance || 0), 0);
+// Initialize on DOM load
+document.addEventListener('DOMContentLoaded', () => {
+    console.log(`🚀 ${APP_NAME} initialized`);
+    initializePage();
+});
+
+// Handle modal close clicks
+document.addEventListener('click', (e) => {
+    if (e.target.classList.contains('modal')) {
+        e.target.classList.remove('show');
     }
-    
-    // If balance is 0, look in transactions
-    if (totalBalance === 0 && data.transactions && data.transactions.length > 0) {
-        const firstTxWithBalance = data.transactions.find(tx => tx.balance !== null && tx.balance !== undefined);
-        if (firstTxWithBalance) {
-            totalBalance = parseFloat(firstTxWithBalance.balance);
+    if (e.target.classList.contains('modal-close')) {
+        const modal = e.target.closest('.modal');
+        if (modal) {
+            modal.classList.remove('show');
         }
     }
-    
-    // Display total balance
-    document.getElementById('totalBalance').textContent = 
-        `$${totalBalance.toLocaleString('en-CA', { 
-            minimumFractionDigits: 2, 
-            maximumFractionDigits: 2 
-        })}`;
-
-    // Display accounts
-    const accountsList = document.getElementById('accountsList');
-    if (data.accounts && data.accounts.length > 0) {
-        accountsList.innerHTML = data.accounts.map(account => {
-            const balance = account.balance || totalBalance || 0;
-            return `
-                <div class="account-item">
-                    <h3>${account.name || account.id}</h3>
-                    <p style="color: #666; margin-bottom: 10px;">
-                        ${account.type || 'Account'} - ${account.institution || account.bank || 'Bank'}
-                    </p>
-                    <p style="font-size: 1.5rem; font-weight: bold; color: #667eea;">
-                        $${balance.toLocaleString('en-CA', { 
-                            minimumFractionDigits: 2, 
-                            maximumFractionDigits: 2 
-                        })}
-                    </p>
-                    <p style="color: #999; font-size: 0.9rem; margin-top: 5px;">
-                        ${account.currency || 'CAD'}
-                    </p>
-                    ${account.transit ? `<p style="color: #888; font-size: 0.8rem;">Transit: ${account.transit}</p>` : ''}
-                    ${account.account ? `<p style="color: #888; font-size: 0.8rem;">Account: ${account.account}</p>` : ''}
-                </div>
-            `;
-        }).join('');
-    } else {
-        accountsList.innerHTML = '<div class="loading">No accounts found</div>';
-    }
-
-    // Display transactions
-    const transactionsList = document.getElementById('transactionsList');
-    if (data.transactions && data.transactions.length > 0) {
-        transactionsList.innerHTML = data.transactions.slice(0, 50).map(tx => {
-            let amount = 0;
-            let isCredit = false;
-            
-            if (tx.credit !== null && tx.credit !== undefined) {
-                amount = parseFloat(tx.credit);
-                isCredit = true;
-            } else if (tx.debit !== null && tx.debit !== undefined) {
-                amount = parseFloat(tx.debit);
-                isCredit = false;
-            } else if (tx.amount !== null && tx.amount !== undefined) {
-                amount = Math.abs(parseFloat(tx.amount));
-                isCredit = parseFloat(tx.amount) > 0;
-            }
-            
-            return `
-                <div class="transaction-item">
-                    <div class="transaction-details">
-                        <div class="transaction-description">
-                            ${tx.description || tx.details || 'Transaction'}
-                        </div>
-                        <div class="transaction-date">
-                            ${new Date(tx.date).toLocaleDateString('en-CA')} 
-                            ${tx.category ? `- ${tx.category}` : ''}
-                        </div>
-                    </div>
-                    <div class="amount ${isCredit ? 'positive' : 'negative'}">
-                        ${isCredit ? '+' : '-'}$${amount.toFixed(2)}
-                    </div>
-                </div>
-            `;
-        }).join('');
-    } else {
-        transactionsList.innerHTML = '<div class="loading">No transactions found</div>';
-    }
-    
-    // Calculate statistics if function exists
-    if (typeof calculateStats === 'function') {
-        calculateStats(data.transactions);
-    }
-}
+});
 
 // ========================================
-// SHARED FUNCTIONS
+// EXPORTS (for use in other scripts)
 // ========================================
-
-function closeIframe() {
-    document.getElementById('iframeContainer').classList.remove('active');
-    document.getElementById('universalFrame').src = '';
+window.CASHOO = {
+    // Auth functions
+    getAuthToken,
+    getCurrentUser,
+    isAuthenticated,
+    storeAuthData,
+    clearAuthData,
+    verifyAuth,
+    requireAuth,
+    logout,
     
-    window.removeEventListener('message', handleFlinksCallback);
-    window.removeEventListener('message', handleInveriteMessage);
-}
-
-function showStatus(message, type = 'info') {
-    const statusDiv = document.getElementById('connectionStatus');
-    const statusMsg = document.getElementById('statusMessage');
+    // API functions
+    apiRequest,
+    loginAPI,
+    registerAPI,
+    forgotPasswordAPI,
+    getFlinksData,
+    claudeChat,
     
-    statusDiv.style.display = 'block';
-    statusMsg.textContent = message;
+    // UI functions
+    showAlert,
+    showModal,
+    hideModal,
+    showButtonLoading,
+    hideButtonLoading,
+    togglePasswordVisibility,
     
-    switch(type) {
-        case 'success':
-            statusDiv.style.background = '#d4edda';
-            statusDiv.style.color = '#155724';
-            statusDiv.style.border = '1px solid #c3e6cb';
-            break;
-        case 'error':
-            statusDiv.style.background = '#f8d7da';
-            statusDiv.style.color = '#721c24';
-            statusDiv.style.border = '1px solid #f5c6cb';
-            break;
-        case 'warning':
-            statusDiv.style.background = '#fff3cd';
-            statusDiv.style.color = '#856404';
-            statusDiv.style.border = '1px solid #ffeaa7';
-            break;
-        default:
-            statusDiv.style.background = '#d1ecf1';
-            statusDiv.style.color = '#0c5460';
-            statusDiv.style.border = '1px solid #bee5eb';
-    }
+    // Formatting functions
+    formatCurrency,
+    formatDate,
+    formatRelativeTime,
     
-    if (type === 'success') {
-        setTimeout(() => {
-            statusDiv.style.display = 'none';
-        }, 5000);
-    }
-}
-
-async function loadAccounts() {
-    try {
-        const response = await fetch(`${API_URL}/flinks/accounts`, {
-            headers: {
-                'Authorization': `Bearer ${authToken}`
-            }
-        });
-
-        const data = await response.json();
-
-        if (data.accounts && data.accounts.length > 0) {
-            displayAccountsData({
-                accounts: data.accounts,
-                transactions: data.transactions || [],
-                summary: {
-                    totalBalance: data.accounts.reduce((sum, acc) => 
-                        sum + (acc.balance || 0), 0)
-                }
-            });
-            
-            if (data.lastSync) {
-                document.getElementById('lastSync').textContent = 
-                    `Last sync: ${new Date(data.lastSync).toLocaleString()}`;
-                document.getElementById('connectBtn').style.display = 'none';
-                document.getElementById('syncBtn').style.display = 'inline-block';
-            }
-        }
-    } catch (error) {
-        console.error('Failed to load accounts:', error);
-    }
-}
-
-function displayAccountsData(data) {
-    const balance = data.summary?.totalBalance || 0;
-    document.getElementById('totalBalance').textContent = 
-        `$${balance.toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-    const accountsList = document.getElementById('accountsList');
-    if (data.accounts && data.accounts.length > 0) {
-        accountsList.innerHTML = data.accounts.map(account => `
-            <div class="account-item">
-                <h3>${account.name || account.id}</h3>
-                <p style="color: #666; margin-bottom: 10px;">
-                    ${account.type || 'Account'} - ${account.institution || account.bank || 'Bank'}
-                </p>
-                <p style="font-size: 1.5rem; font-weight: bold; color: #667eea;">
-                    $${(account.balance || 0).toLocaleString('en-CA', { 
-                        minimumFractionDigits: 2, 
-                        maximumFractionDigits: 2 
-                    })}
-                </p>
-                <p style="color: #999; font-size: 0.9rem; margin-top: 5px;">
-                    ${account.currency || 'CAD'}
-                </p>
-            </div>
-        `).join('');
-    } else {
-        accountsList.innerHTML = '<div class="loading">No accounts found</div>';
-    }
-
-    const transactionsList = document.getElementById('transactionsList');
-    if (data.transactions && data.transactions.length > 0) {
-        transactionsList.innerHTML = data.transactions.slice(0, 50).map(tx => `
-            <div class="transaction-item">
-                <div class="transaction-details">
-                    <div class="transaction-description">
-                        ${tx.description || tx.details || 'Transaction'}
-                    </div>
-                    <div class="transaction-date">
-                        ${new Date(tx.date).toLocaleDateString('en-CA')} 
-                        ${tx.category ? `- ${tx.category}` : ''}
-                    </div>
-                </div>
-                <div class="amount ${(tx.amount || tx.credit || 0) >= 0 ? 'positive' : 'negative'}">
-                    ${tx.credit ? '+' : ''}${tx.debit ? '-' : ''}
-                    $${Math.abs(tx.amount || tx.credit || tx.debit || 0).toFixed(2)}
-                </div>
-            </div>
-        `).join('');
-    } else {
-        transactionsList.innerHTML = '<div class="loading">No transactions found</div>';
-    }
-}
-
-function handleError(error) {
-    console.error('Error:', error);
-    if (error.response?.status === 401) {
-        logout();
-    }
-}
-
-// Utility function to reload Inverite data
-window.refreshInveriteData = function() {
-    fetchInveriteData('339703B7-9B97-4FDC-8727-D04357A08DAD');
-}
-
-console.log('🚀 CASHOO App v2.0 - Unified API');
-console.log('💡 Tip: Use refreshInveriteData() to reload data');
+    // Validation functions
+    validateEmail,
+    validatePassword,
+    
+    // Financial functions
+    calculateMonthlyStats,
+    categorizeTransaction
+};
